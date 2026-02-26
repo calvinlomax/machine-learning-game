@@ -47,6 +47,10 @@
             <div class="hud-item"><span>FPS</span><strong id="stat-fps">0.0</strong></div>
             <div class="hud-item"><span>Step ms</span><strong id="stat-step-ms">0.00</strong></div>
           </div>
+          <section class="saved-racers" aria-label="Saved racers">
+            <h3>Saved Racers</h3>
+            <div id="saved-racer-list" class="saved-racer-list"></div>
+          </section>
         </div>
       </section>
 
@@ -61,8 +65,9 @@
           <button id="new-track-btn">New track</button>
           <button id="new-racer-btn" class="danger">New racer</button>
         </div>
-        <div class="button-row button-row-single">
+        <div class="button-row">
           <button id="change-car-btn">Change car</button>
+          <button id="save-racer-btn" class="primary">save racer</button>
         </div>
 
         <div class="seed-row">
@@ -107,6 +112,26 @@
         <div id="car-option-grid" class="car-option-grid"></div>
         <div class="modal-actions">
           <button id="car-modal-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="racer-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="racer-modal-title" tabindex="-1">
+        <h2 id="racer-modal-title">Save racer</h2>
+        <p id="racer-modal-message"></p>
+        <div class="field-stack">
+          <label for="racer-name-input">Racer name</label>
+          <input id="racer-name-input" type="text" maxlength="48" autocomplete="off" />
+        </div>
+        <div id="racer-car-field" class="field-stack" hidden>
+          <label for="racer-car-select">Car color</label>
+          <select id="racer-car-select"></select>
+        </div>
+        <div class="modal-actions">
+          <button id="racer-modal-cancel-btn">Cancel</button>
+          <button id="racer-modal-save-btn" class="primary">Save</button>
         </div>
       </div>
     </div>

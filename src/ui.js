@@ -31,6 +31,13 @@ function formatLapTime(secondsValue) {
   ).padStart(2, "0")}`;
 }
 
+function formatReturn(value) {
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+  return formatNumber(value, 2);
+}
+
 const PARAM_DEFS = [
   {
     id: "learningRate",
@@ -209,12 +216,14 @@ export function createUI({ initialHyperparams, initialSeed }) {
     newTrackBtn: document.getElementById("new-track-btn"),
     newRacerBtn: document.getElementById("new-racer-btn"),
     changeCarBtn: document.getElementById("change-car-btn"),
+    saveRacerBtn: document.getElementById("save-racer-btn"),
     applySeedBtn: document.getElementById("apply-seed-btn"),
     seedInput: document.getElementById("seed-input"),
     resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
     toggleSensors: document.getElementById("toggle-sensors"),
     toggleTrail: document.getElementById("toggle-trail"),
-    sliderContainer: document.getElementById("training-sliders")
+    sliderContainer: document.getElementById("training-sliders"),
+    savedRacerList: document.getElementById("saved-racer-list")
   };
 
   const stats = {
@@ -254,6 +263,19 @@ export function createUI({ initialHyperparams, initialSeed }) {
     backdrop: document.querySelector("#car-modal-root .modal-backdrop")
   };
 
+  const racerModal = {
+    root: document.getElementById("racer-modal-root"),
+    dialog: document.querySelector("#racer-modal-root .modal"),
+    title: document.getElementById("racer-modal-title"),
+    message: document.getElementById("racer-modal-message"),
+    nameInput: document.getElementById("racer-name-input"),
+    carField: document.getElementById("racer-car-field"),
+    carSelect: document.getElementById("racer-car-select"),
+    cancelBtn: document.getElementById("racer-modal-cancel-btn"),
+    saveBtn: document.getElementById("racer-modal-save-btn"),
+    backdrop: document.querySelector("#racer-modal-root .modal-backdrop")
+  };
+
   const handlers = {
     onStartPause: () => {},
     onStep: () => {},
@@ -261,6 +283,10 @@ export function createUI({ initialHyperparams, initialSeed }) {
     onRequestNewTrack: () => {},
     onRequestNewRacer: () => {},
     onRequestCarPicker: () => {},
+    onRequestSaveRacer: () => {},
+    onDeploySavedRacer: () => {},
+    onDeleteSavedRacer: () => {},
+    onEditSavedRacer: () => {},
     onApplySeed: () => {},
     onHyperparamsChange: () => {}
   };
@@ -386,6 +412,100 @@ export function createUI({ initialHyperparams, initialSeed }) {
     stats.stepMs.textContent = formatNumber(nextStats.stepMs ?? 0, 2);
   }
 
+  function createSavedRacerCard(savedRacer, carById) {
+    const card = document.createElement("article");
+    card.className = "saved-racer-card";
+    card.dataset.racerId = savedRacer.id;
+
+    const header = document.createElement("div");
+    header.className = "saved-racer-head";
+
+    const name = document.createElement("div");
+    name.className = "saved-racer-name";
+    name.textContent = savedRacer.name || "Unnamed Racer";
+
+    const carPreview = document.createElement("span");
+    carPreview.className = "saved-racer-car";
+    const carStyle = carById.get(savedRacer.carId);
+    if (carStyle) {
+      carPreview.style.setProperty("--car-primary", carStyle.primary);
+      carPreview.style.setProperty("--car-secondary", carStyle.secondary);
+      carPreview.style.setProperty("--car-accent", carStyle.accent);
+    }
+
+    header.append(name, carPreview);
+    card.appendChild(header);
+
+    const metrics = document.createElement("div");
+    metrics.className = "saved-racer-metrics";
+    const metricRows = [
+      ["Episodes", String(Math.max(1, Math.floor(savedRacer.metrics?.episodes ?? 1)))],
+      ["Best laps", String(Math.max(0, Math.floor(savedRacer.metrics?.bestLapCount ?? 0)))],
+      ["Best return", formatReturn(savedRacer.metrics?.bestReturn)],
+      ["Train steps", String(Math.max(0, Math.floor(savedRacer.metrics?.trainingSteps ?? 0)))]
+    ];
+
+    for (let i = 0; i < metricRows.length; i += 1) {
+      const [labelText, valueText] = metricRows[i];
+      const row = document.createElement("div");
+      row.className = "saved-racer-metric";
+
+      const label = document.createElement("span");
+      label.textContent = labelText;
+
+      const value = document.createElement("strong");
+      value.textContent = valueText;
+      row.append(label, value);
+      metrics.appendChild(row);
+    }
+
+    card.appendChild(metrics);
+
+    const actions = document.createElement("div");
+    actions.className = "saved-racer-actions";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "danger delete-racer-btn";
+    deleteBtn.textContent = "Delete racer";
+    deleteBtn.addEventListener("click", () => handlers.onDeleteSavedRacer(savedRacer.id));
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.className = "edit-racer-btn";
+    editBtn.textContent = "Edit Racer";
+    editBtn.addEventListener("click", () => handlers.onEditSavedRacer(savedRacer.id));
+
+    const deployBtn = document.createElement("button");
+    deployBtn.type = "button";
+    deployBtn.className = "primary deploy-racer-btn";
+    deployBtn.textContent = "Deploy Racer";
+    deployBtn.addEventListener("click", () => handlers.onDeploySavedRacer(savedRacer.id));
+
+    actions.append(deleteBtn, editBtn, deployBtn);
+    card.appendChild(actions);
+
+    return card;
+  }
+
+  function setSavedRacers(savedRacers, cars) {
+    const list = Array.isArray(savedRacers) ? savedRacers.slice(0, 4) : [];
+    elements.savedRacerList.innerHTML = "";
+
+    if (!list.length) {
+      const empty = document.createElement("div");
+      empty.className = "saved-racer-empty";
+      empty.textContent = "No saved racers yet. Save up to four racers from the current run.";
+      elements.savedRacerList.appendChild(empty);
+      return;
+    }
+
+    const carById = new Map((Array.isArray(cars) ? cars : []).map((car) => [car.id, car]));
+    for (let i = 0; i < list.length; i += 1) {
+      elements.savedRacerList.appendChild(createSavedRacerCard(list[i], carById));
+    }
+  }
+
   let modalOpen = false;
   let activeModal = null;
   let modalResolver = null;
@@ -397,6 +517,9 @@ export function createUI({ initialHyperparams, initialSeed }) {
     }
     if (activeModal === "car") {
       return carModal.dialog;
+    }
+    if (activeModal === "racer") {
+      return racerModal.dialog;
     }
     return null;
   }
@@ -410,6 +533,8 @@ export function createUI({ initialHyperparams, initialSeed }) {
       modal.root.hidden = true;
     } else if (activeModal === "car") {
       carModal.root.hidden = true;
+    } else if (activeModal === "racer") {
+      racerModal.root.hidden = true;
     }
 
     modalOpen = false;
@@ -550,6 +675,76 @@ export function createUI({ initialHyperparams, initialSeed }) {
   carModal.closeBtn.addEventListener("click", () => closeModal(null));
   carModal.backdrop.addEventListener("click", () => closeModal(null));
 
+  function openRacerModal({
+    title,
+    message,
+    submitText,
+    nameValue = "",
+    showCarSelect = false,
+    cars = [],
+    selectedCarId = ""
+  }) {
+    if (modalOpen) {
+      return Promise.resolve(null);
+    }
+
+    racerModal.title.textContent = title;
+    racerModal.message.textContent = message;
+    racerModal.saveBtn.textContent = submitText;
+    racerModal.nameInput.value = nameValue || "";
+
+    if (showCarSelect) {
+      racerModal.carField.hidden = false;
+      racerModal.carSelect.innerHTML = "";
+      for (let i = 0; i < cars.length; i += 1) {
+        const option = document.createElement("option");
+        option.value = cars[i].id;
+        option.textContent = cars[i].alias;
+        racerModal.carSelect.appendChild(option);
+      }
+
+      if (selectedCarId) {
+        racerModal.carSelect.value = selectedCarId;
+      }
+      if (!racerModal.carSelect.value && racerModal.carSelect.options.length) {
+        racerModal.carSelect.value = racerModal.carSelect.options[0].value;
+      }
+    } else {
+      racerModal.carField.hidden = true;
+      racerModal.carSelect.innerHTML = "";
+    }
+
+    modalOpen = true;
+    activeModal = "racer";
+    previousFocused = document.activeElement;
+    racerModal.root.hidden = false;
+
+    return new Promise((resolve) => {
+      modalResolver = resolve;
+      requestAnimationFrame(() => {
+        racerModal.nameInput.focus();
+        racerModal.nameInput.select();
+      });
+    });
+  }
+
+  function submitRacerModal() {
+    closeModal({
+      name: racerModal.nameInput.value.trim(),
+      carId: racerModal.carField.hidden ? null : racerModal.carSelect.value
+    });
+  }
+
+  racerModal.cancelBtn.addEventListener("click", () => closeModal(null));
+  racerModal.saveBtn.addEventListener("click", submitRacerModal);
+  racerModal.backdrop.addEventListener("click", () => closeModal(null));
+  racerModal.dialog.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitRacerModal();
+    }
+  });
+
   function confirmNewTrack() {
     return confirmAction({
       title: "New track",
@@ -568,6 +763,36 @@ export function createUI({ initialHyperparams, initialSeed }) {
     });
   }
 
+  function confirmDeleteRacer(name) {
+    return confirmAction({
+      title: "Delete racer",
+      message: `Delete ${name || "this racer"}? This cannot be undone.`,
+      confirmText: "Delete",
+      confirmClass: "danger"
+    });
+  }
+
+  function promptSaveRacerName() {
+    return openRacerModal({
+      title: "Save racer",
+      message: "Name this racer. Leave blank to auto-generate a name.",
+      submitText: "Save",
+      nameValue: ""
+    });
+  }
+
+  function promptEditRacer(savedRacer, cars) {
+    return openRacerModal({
+      title: "Edit racer",
+      message: "Update the saved racer name and/or car color.",
+      submitText: "Save changes",
+      nameValue: savedRacer?.name || "",
+      showCarSelect: true,
+      cars: Array.isArray(cars) ? cars : [],
+      selectedCarId: savedRacer?.carId || ""
+    });
+  }
+
   elements.seedInput.value = String(initialSeed);
 
   elements.startPauseBtn.addEventListener("click", () => handlers.onStartPause());
@@ -576,6 +801,7 @@ export function createUI({ initialHyperparams, initialSeed }) {
   elements.newTrackBtn.addEventListener("click", () => handlers.onRequestNewTrack());
   elements.newRacerBtn.addEventListener("click", () => handlers.onRequestNewRacer());
   elements.changeCarBtn.addEventListener("click", () => handlers.onRequestCarPicker());
+  elements.saveRacerBtn.addEventListener("click", () => handlers.onRequestSaveRacer());
   elements.applySeedBtn.addEventListener("click", () => handlers.onApplySeed(elements.seedInput.value));
 
   elements.resetDefaultsBtn.addEventListener("click", () => {
@@ -583,6 +809,7 @@ export function createUI({ initialHyperparams, initialSeed }) {
   });
 
   buildSliderPanel();
+  setSavedRacers([], []);
 
   return {
     setHandlers(nextHandlers) {
@@ -604,8 +831,12 @@ export function createUI({ initialHyperparams, initialSeed }) {
     },
     setRunning,
     updateStats,
+    setSavedRacers,
     confirmNewTrack,
     confirmNewRacer,
+    confirmDeleteRacer,
+    promptSaveRacerName,
+    promptEditRacer,
     openCarPicker,
     isModalOpen() {
       return modalOpen;

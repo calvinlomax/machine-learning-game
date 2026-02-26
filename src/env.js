@@ -103,6 +103,17 @@ export class RacingEnv {
     }
   }
 
+  setLapHistory(records = {}) {
+    const bestLapTimeSec = Number(records.bestLapTimeSec);
+    const worstLapTimeSec = Number(records.worstLapTimeSec);
+    const bestLapCount = Number(records.bestLapCount);
+
+    this.bestLapTimeSec = Number.isFinite(bestLapTimeSec) && bestLapTimeSec > 0 ? bestLapTimeSec : null;
+    this.worstLapTimeSec =
+      Number.isFinite(worstLapTimeSec) && worstLapTimeSec > 0 ? worstLapTimeSec : null;
+    this.bestLapCount = Number.isFinite(bestLapCount) ? Math.max(0, Math.floor(bestLapCount)) : 0;
+  }
+
   updateConfig({ maxEpisodeSteps, actionSmoothing, rewardWeights }) {
     if (typeof maxEpisodeSteps === "number") {
       this.maxEpisodeSteps = Math.max(50, Math.floor(maxEpisodeSteps));

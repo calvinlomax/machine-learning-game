@@ -58,6 +58,54 @@ class TinyQNetwork {
     }
   }
 
+  toJSON() {
+    return {
+      w1: this.w1.map((row) => Array.from(row)),
+      b1: Array.from(this.b1),
+      w2: this.w2.map((row) => Array.from(row)),
+      b2: Array.from(this.b2)
+    };
+  }
+
+  fromJSON(snapshot) {
+    if (!snapshot || !Array.isArray(snapshot.w1) || !Array.isArray(snapshot.w2)) {
+      return false;
+    }
+
+    if (
+      snapshot.w1.length !== this.hiddenSize ||
+      snapshot.w2.length !== this.outputSize ||
+      !Array.isArray(snapshot.b1) ||
+      !Array.isArray(snapshot.b2)
+    ) {
+      return false;
+    }
+
+    for (let h = 0; h < this.hiddenSize; h += 1) {
+      const row = snapshot.w1[h];
+      if (!Array.isArray(row) || row.length !== this.inputSize) {
+        return false;
+      }
+      for (let i = 0; i < this.inputSize; i += 1) {
+        this.w1[h][i] = Number(row[i]) || 0;
+      }
+      this.b1[h] = Number(snapshot.b1[h]) || 0;
+    }
+
+    for (let o = 0; o < this.outputSize; o += 1) {
+      const row = snapshot.w2[o];
+      if (!Array.isArray(row) || row.length !== this.hiddenSize) {
+        return false;
+      }
+      for (let h = 0; h < this.hiddenSize; h += 1) {
+        this.w2[o][h] = Number(row[h]) || 0;
+      }
+      this.b2[o] = Number(snapshot.b2[o]) || 0;
+    }
+
+    return true;
+  }
+
   forward(observation) {
     const preHidden = new Float32Array(this.hiddenSize);
     const hidden = new Float32Array(this.hiddenSize);
@@ -329,5 +377,62 @@ export class DQNAgent {
     this.epsilon = this.hyperparams.epsilonStart;
     this.trainingStepCount = 0;
     this.lastLoss = null;
+  }
+
+  exportSnapshot() {
+    return {
+      hyperparams: { ...this.hyperparams },
+      epsilon: this.epsilon,
+      trainingStepCount: this.trainingStepCount,
+      onlineNetwork: this.onlineNetwork.toJSON(),
+      targetNetwork: this.targetNetwork.toJSON()
+    };
+  }
+
+  importSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== "object") {
+      return false;
+    }
+
+    const incomingHyperparams = snapshot.hyperparams || this.hyperparams;
+    this.setHyperparams(incomingHyperparams);
+
+    this.onlineNetwork = new TinyQNetwork(
+      this.observationSize,
+      this.hiddenSize,
+      this.actionSize,
+      this.rng
+    );
+
+    this.targetNetwork = new TinyQNetwork(
+      this.observationSize,
+      this.hiddenSize,
+      this.actionSize,
+      this.rng
+    );
+
+    const loadedOnline = this.onlineNetwork.fromJSON(snapshot.onlineNetwork);
+    const loadedTarget = this.targetNetwork.fromJSON(snapshot.targetNetwork || snapshot.onlineNetwork);
+
+    if (!loadedOnline) {
+      this.resetModel();
+      return false;
+    }
+
+    if (!loadedTarget) {
+      this.targetNetwork.copyFrom(this.onlineNetwork);
+    }
+
+    this.epsilon = clamp(
+      Number.isFinite(snapshot.epsilon) ? snapshot.epsilon : this.hyperparams.epsilonStart,
+      this.hyperparams.epsilonMin,
+      this.hyperparams.epsilonStart
+    );
+
+    this.trainingStepCount = Math.max(0, Math.floor(snapshot.trainingStepCount || 0));
+    this.replay = new ReplayBuffer(this.hyperparams.replayBufferSize);
+    this.lastLoss = null;
+
+    return true;
   }
 }

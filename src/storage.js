@@ -1,6 +1,7 @@
 const KEYS = {
   bestReturn: "ml-racer-best-return-v1",
-  hyperparams: "ml-racer-hyperparams-v1"
+  hyperparams: "ml-racer-hyperparams-v1",
+  savedRacers: "ml-racer-saved-racers-v1"
 };
 
 function getStorage() {
@@ -70,4 +71,36 @@ export function saveHyperparams(hyperparams) {
   }
 
   storage.setItem(KEYS.hyperparams, JSON.stringify(hyperparams));
+}
+
+export function loadSavedRacers() {
+  const storage = getStorage();
+  if (!storage) {
+    return [];
+  }
+
+  const raw = storage.getItem(KEYS.savedRacers);
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed;
+  } catch {
+    return [];
+  }
+}
+
+export function saveSavedRacers(savedRacers) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  const safeList = Array.isArray(savedRacers) ? savedRacers : [];
+  storage.setItem(KEYS.savedRacers, JSON.stringify(safeList));
 }

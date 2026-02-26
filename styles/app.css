@@ -30,12 +30,17 @@ body {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
 
 button,
 input {
+  font: inherit;
+}
+
+select {
   font: inherit;
 }
 
@@ -79,7 +84,8 @@ button.danger:hover {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(13, 127, 97, 0.35);
   outline-offset: 2px;
 }
@@ -227,6 +233,144 @@ input:focus-visible {
 .hud-item strong {
   font-size: 0.73rem;
   letter-spacing: 0.01em;
+}
+
+.saved-racers {
+  margin-top: 0.5rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.saved-racers h3 {
+  margin-bottom: 0.45rem;
+  color: #f1f5f5;
+  font-size: 0.84rem;
+  letter-spacing: 0.03em;
+}
+
+.saved-racer-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.saved-racer-empty {
+  background: rgba(8, 15, 17, 0.55);
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  color: rgba(234, 243, 244, 0.82);
+  border-radius: 0.52rem;
+  padding: 0.5rem;
+  font-size: 0.74rem;
+}
+
+.saved-racer-card {
+  background: rgba(8, 15, 17, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 0.55rem;
+  color: #eef4f4;
+  padding: 0.5rem;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.saved-racer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.saved-racer-name {
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.saved-racer-car {
+  --car-primary: #6e737a;
+  --car-secondary: #121212;
+  --car-accent: #c9cdd2;
+  width: 74px;
+  height: 22px;
+  display: block;
+  border-radius: 0.22rem;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  clip-path: polygon(
+    0% 50%,
+    7% 34%,
+    19% 28%,
+    34% 25%,
+    66% 25%,
+    81% 28%,
+    93% 34%,
+    100% 50%,
+    93% 66%,
+    81% 72%,
+    66% 75%,
+    34% 75%,
+    19% 72%,
+    7% 66%
+  );
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0 6%,
+      var(--car-accent) 6% 10%,
+      transparent 10% 90%,
+      var(--car-accent) 90% 94%,
+      transparent 94% 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--car-secondary) 0 24%,
+      var(--car-primary) 24% 76%,
+      var(--car-secondary) 76% 100%
+    );
+}
+
+.saved-racer-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.28rem 0.42rem;
+}
+
+.saved-racer-metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  color: rgba(233, 242, 243, 0.85);
+}
+
+.saved-racer-metric strong {
+  color: #f5f9f9;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.saved-racer-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  gap: 0.36rem 0.42rem;
+  align-items: end;
+}
+
+.saved-racer-actions .delete-racer-btn {
+  grid-column: 1;
+  grid-row: 2;
+  justify-self: start;
+}
+
+.saved-racer-actions .edit-racer-btn {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+}
+
+.saved-racer-actions .deploy-racer-btn {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
 }
 
 .controls h2,
@@ -452,6 +596,24 @@ input:focus-visible {
   gap: 0.5rem;
 }
 
+.field-stack {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.field-stack label {
+  font-size: 0.86rem;
+  color: #4c4032;
+}
+
+.field-stack input,
+.field-stack select {
+  border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  padding: 0.45rem 0.55rem;
+  width: 100%;
+}
+
 @media (min-width: 860px) {
   .app-shell {
     grid-template-columns: 2fr 1fr;
@@ -481,5 +643,9 @@ input:focus-visible {
 
   .car-option-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .saved-racer-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
