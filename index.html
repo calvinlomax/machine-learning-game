@@ -14,17 +14,16 @@
           <h1>ML1 Grand Prix - Train, Build, and Test Your Team with AI</h1>
           <p class="kicker">Coach your driver by adjusting the sliders below, save them to build your team!</p>
         </div>
-        <div class="team-panel">
+      </header>
+
+      <section class="surface canvas-surface" aria-label="Simulation">
+        <div class="team-panel canvas-team-panel">
           <div class="team-panel-head">
             <span>Team Name</span>
           </div>
           <button id="team-name-display" type="button" class="team-name-btn">ML1 Academy</button>
           <input id="team-name-input" class="team-name-input" type="text" maxlength="48" autocomplete="off" hidden />
         </div>
-      </header>
-
-      <section class="surface canvas-surface" aria-label="Simulation">
-        <h2>Viewer</h2>
         <div class="canvas-frame">
           <canvas id="game-canvas" width="900" height="600" aria-label="Racing simulation canvas"></canvas>
         </div>
@@ -74,12 +73,6 @@
           <button id="save-racer-btn" class="primary">save racer</button>
         </div>
 
-        <div class="seed-row">
-          <label for="seed-input">Track seed</label>
-          <input id="seed-input" type="text" inputmode="numeric" maxlength="9" autocomplete="off" />
-          <button id="apply-seed-btn">Apply seed</button>
-        </div>
-
         <div class="toggle-row">
           <label><input id="toggle-sensors" type="checkbox" checked /> Show ray sensors</label>
           <label><input id="toggle-trail" type="checkbox" checked /> Show trajectory trail</label>
@@ -116,6 +109,26 @@
         <div id="car-option-grid" class="car-option-grid"></div>
         <div class="modal-actions">
           <button id="car-modal-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="track-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal track-modal" role="dialog" aria-modal="true" aria-labelledby="track-modal-title" tabindex="-1">
+        <h2 id="track-modal-title">New Track</h2>
+        <p>Select a preset, enter a seed, or create a random track.</p>
+        <div id="track-preset-grid" class="track-preset-grid"></div>
+        <div class="field-stack">
+          <label for="seed-input">Track seed</label>
+          <input id="seed-input" type="text" inputmode="numeric" maxlength="9" autocomplete="off" />
+        </div>
+        <div class="track-modal-actions">
+          <button id="apply-seed-btn" class="primary">Apply seed</button>
+          <button id="track-random-btn">Random Track</button>
+        </div>
+        <div class="modal-actions">
+          <button id="track-modal-close-btn">Close</button>
         </div>
       </div>
     </div>

@@ -146,9 +146,7 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
   }
 
   function drawCar(car, carStyle = DEFAULT_CAR_STYLE) {
-    if (!car) {
-      return;
-    }
+    if (!car) return;
 
     const primary = carStyle?.primary || DEFAULT_CAR_STYLE.primary;
     const secondary = carStyle?.secondary || DEFAULT_CAR_STYLE.secondary;
@@ -158,79 +156,107 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     ctx.translate(car.x, car.y);
     ctx.rotate(car.heading);
 
-    ctx.fillStyle = "#111111";
+    // -------- Wheels (bigger rear, slightly larger track) --------
+    ctx.fillStyle = "#101010";
     ctx.beginPath();
-    ctx.arc(7, -7.4, 2.25, 0, Math.PI * 2);
-    ctx.arc(7, 7.4, 2.25, 0, Math.PI * 2);
-    ctx.arc(-14, -8.7, 2.35, 0, Math.PI * 2);
-    ctx.arc(-14, 8.7, 2.35, 0, Math.PI * 2);
+    // front wheels
+    ctx.arc(9.5, -8.2, 2.15, 0, Math.PI * 2);
+    ctx.arc(9.5, 8.2, 2.15, 0, Math.PI * 2);
+    // rear wheels
+    ctx.arc(-15.8, -9.6, 2.55, 0, Math.PI * 2);
+    ctx.arc(-15.8, 9.6, 2.55, 0, Math.PI * 2);
     ctx.fill();
 
+    // -------- Main body (F1-ish outline: nose, sidepods, taper to rear) --------
     ctx.fillStyle = primary;
     ctx.strokeStyle = "#121212";
     ctx.lineWidth = 1.2;
+
     ctx.beginPath();
-    ctx.moveTo(17, 0);
-    ctx.lineTo(10.5, -4.2);
-    ctx.lineTo(2.6, -5.5);
-    ctx.lineTo(-8.5, -6.5);
-    ctx.lineTo(-14.4, -8.4);
-    ctx.lineTo(-21, -8.4);
-    ctx.lineTo(-21, 8.4);
-    ctx.lineTo(-14.4, 8.4);
-    ctx.lineTo(-8.5, 6.5);
-    ctx.lineTo(2.6, 5.5);
-    ctx.lineTo(10.5, 4.2);
+    // nose tip
+    ctx.moveTo(18.5, 0);
+    // front wing area
+    ctx.lineTo(13.0, -5.0);
+    // nose narrowing
+    ctx.lineTo(8.2, -3.6);
+    // chassis to sidepod
+    ctx.lineTo(2.8, -5.9);
+    // sidepod bulge
+    ctx.lineTo(-8.8, -7.4);
+    // rear body
+    ctx.lineTo(-16.8, -9.0);
+    // rear wing mount area
+    ctx.lineTo(-23.8, -9.0);
+    ctx.lineTo(-23.8, 9.0);
+    ctx.lineTo(-16.8, 9.0);
+    ctx.lineTo(-8.8, 7.4);
+    ctx.lineTo(2.8, 5.9);
+    ctx.lineTo(8.2, 3.6);
+    ctx.lineTo(13.0, 5.0);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
+    // -------- Cockpit + engine cover (secondary) --------
     ctx.fillStyle = secondary;
     ctx.beginPath();
-    ctx.moveTo(8.3, 0);
-    ctx.lineTo(4.2, -2.4);
-    ctx.lineTo(-10.6, -2.8);
-    ctx.lineTo(-13.8, -5.7);
-    ctx.lineTo(-13.8, 5.7);
-    ctx.lineTo(-10.6, 2.8);
-    ctx.lineTo(4.2, 2.4);
+    ctx.moveTo(6.8, 0);
+    ctx.lineTo(3.2, -2.3);
+    ctx.lineTo(-7.8, -2.9);
+    ctx.lineTo(-12.8, -6.0);
+    ctx.lineTo(-15.5, -6.0);
+    ctx.lineTo(-15.5, 6.0);
+    ctx.lineTo(-12.8, 6.0);
+    ctx.lineTo(-7.8, 2.9);
+    ctx.lineTo(3.2, 2.3);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = accent;
+    // cockpit opening (dark)
+    ctx.fillStyle = "#151515";
     ctx.beginPath();
-    ctx.moveTo(17, 0);
-    ctx.lineTo(8.7, -1.9);
-    ctx.lineTo(8.7, 1.9);
+    ctx.moveTo(-1.2, 0);
+    ctx.lineTo(-3.4, -1.4);
+    ctx.lineTo(-6.1, 0);
+    ctx.lineTo(-3.4, 1.4);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle = secondary;
-    ctx.fillRect(14.2, -7.1, 6.4, 2.5);
-    ctx.fillRect(14.2, 4.6, 6.4, 2.5);
-    ctx.fillRect(12.8, -4.6, 1.4, 9.2);
-
+    // -------- Nose tip accent --------
     ctx.fillStyle = accent;
-    ctx.fillRect(-23.9, -8.9, 2.2, 17.8);
-    ctx.fillRect(-26.3, -9.9, 2.6, 19.8);
+    ctx.beginPath();
+    ctx.moveTo(18.5, 0);
+    ctx.lineTo(10.4, -1.9);
+    ctx.lineTo(10.4, 1.9);
+    ctx.closePath();
+    ctx.fill();
 
+    // -------- Front wing (secondary) --------
+    ctx.fillStyle = secondary;
+    // upper/lower main planes
+    ctx.fillRect(13.9, -8.1, 7.4, 2.6);
+    ctx.fillRect(13.9, 5.5, 7.4, 2.6);
+    // center pillar
+    ctx.fillRect(12.4, -5.5, 1.5, 11.0);
+
+    // -------- Rear wing (accent) --------
+    ctx.fillStyle = accent;
+    // endplates + element
+    ctx.fillRect(-24.9, -9.8, 2.4, 19.6);
+    ctx.fillRect(-27.7, -10.8, 3.0, 21.6);
+    // top flap
+    ctx.fillRect(-28.2, -10.8, 6.0, 1.5);
+    ctx.fillRect(-28.2, 9.3, 6.0, 1.5);
+
+    // -------- Sidepod stripes (accent strokes) --------
     ctx.strokeStyle = accent;
-    ctx.lineWidth = 1.1;
+    ctx.lineWidth = 1.05;
     ctx.beginPath();
-    ctx.moveTo(-11, -4.2);
-    ctx.lineTo(8.2, -1.55);
-    ctx.moveTo(-11, 4.2);
-    ctx.lineTo(8.2, 1.55);
+    ctx.moveTo(-10.8, -4.7);
+    ctx.lineTo(8.8, -1.6);
+    ctx.moveTo(-10.8, 4.7);
+    ctx.lineTo(8.8, 1.6);
     ctx.stroke();
-
-    ctx.fillStyle = "#171717";
-    ctx.beginPath();
-    ctx.moveTo(2.3, 0);
-    ctx.lineTo(-0.9, -1.1);
-    ctx.lineTo(-4.6, 0);
-    ctx.lineTo(-0.9, 1.1);
-    ctx.closePath();
-    ctx.fill();
 
     ctx.restore();
   }

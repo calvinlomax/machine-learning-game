@@ -155,6 +155,10 @@ select:focus-visible {
   font-size: 0.95rem;
 }
 
+.canvas-team-panel {
+  margin-bottom: 0.55rem;
+}
+
 .surface {
   background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
   border: 1px solid var(--line);
@@ -393,7 +397,6 @@ select:focus-visible {
   justify-self: end;
 }
 
-.canvas-surface > h2,
 .controls > h2,
 .training h2 {
   font-size: 1.02rem;
@@ -530,6 +533,10 @@ select:focus-visible {
   width: min(94vw, 640px);
 }
 
+.track-modal {
+  width: min(94vw, 640px);
+}
+
 .car-option-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -537,6 +544,32 @@ select:focus-visible {
   max-height: min(58vh, 430px);
   overflow: auto;
   padding-right: 0.12rem;
+}
+
+.track-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.track-preset-btn {
+  border: 1px solid #d1b790;
+  border-radius: 0.58rem;
+  background: rgba(255, 255, 255, 0.86);
+  padding: 0.55rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 620;
+}
+
+.track-preset-btn.active {
+  border-color: #0d7f61;
+  box-shadow: inset 0 0 0 2px rgba(13, 127, 97, 0.22);
+}
+
+.track-modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 
 .car-option-btn {
@@ -643,15 +676,6 @@ select:focus-visible {
 
   .hero {
     grid-column: 1 / -1;
-  }
-
-  .team-panel {
-    justify-items: end;
-  }
-
-  .team-name-btn,
-  .team-name-input {
-    text-align: right;
   }
 
   .canvas-surface {

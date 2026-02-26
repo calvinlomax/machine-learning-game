@@ -222,7 +222,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     newRacerBtn: document.getElementById("new-racer-btn"),
     changeCarBtn: document.getElementById("change-car-btn"),
     saveRacerBtn: document.getElementById("save-racer-btn"),
-    applySeedBtn: document.getElementById("apply-seed-btn"),
     seedInput: document.getElementById("seed-input"),
     resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
     toggleSensors: document.getElementById("toggle-sensors"),
@@ -270,6 +269,17 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     backdrop: document.querySelector("#car-modal-root .modal-backdrop")
   };
 
+  const trackModal = {
+    root: document.getElementById("track-modal-root"),
+    dialog: document.querySelector("#track-modal-root .track-modal"),
+    presetGrid: document.getElementById("track-preset-grid"),
+    seedInput: document.getElementById("seed-input"),
+    applyBtn: document.getElementById("apply-seed-btn"),
+    randomBtn: document.getElementById("track-random-btn"),
+    closeBtn: document.getElementById("track-modal-close-btn"),
+    backdrop: document.querySelector("#track-modal-root .modal-backdrop")
+  };
+
   const racerModal = {
     root: document.getElementById("racer-modal-root"),
     dialog: document.querySelector("#racer-modal-root .modal"),
@@ -295,7 +305,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     onDeleteSavedRacer: () => {},
     onEditSavedRacer: () => {},
     onTeamNameChange: () => {},
-    onApplySeed: () => {},
     onHyperparamsChange: () => {}
   };
 
@@ -582,10 +591,11 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     }
 
     const confirmVisible = modal.root && !modal.root.hidden;
+    const trackVisible = trackModal.root && !trackModal.root.hidden;
     const carVisible = carModal.root && !carModal.root.hidden;
     const racerVisible = racerModal.root && !racerModal.root.hidden;
 
-    if (!confirmVisible && !carVisible && !racerVisible) {
+    if (!confirmVisible && !trackVisible && !carVisible && !racerVisible) {
       modalOpen = false;
       activeModal = null;
       modalResolver = null;
@@ -595,6 +605,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   function activeDialog() {
     if (activeModal === "confirm") {
       return modal.dialog;
+    }
+    if (activeModal === "track") {
+      return trackModal.dialog;
     }
     if (activeModal === "car") {
       return carModal.dialog;
@@ -612,6 +625,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
 
     if (activeModal === "confirm") {
       modal.root.hidden = true;
+    } else if (activeModal === "track") {
+      trackModal.root.hidden = true;
     } else if (activeModal === "car") {
       carModal.root.hidden = true;
     } else if (activeModal === "racer") {
@@ -705,6 +720,84 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   modal.cancelBtn.addEventListener("click", () => closeModal(false));
   modal.confirmBtn.addEventListener("click", () => closeModal(true));
   modal.backdrop.addEventListener("click", () => closeModal(false));
+
+  function buildTrackPresetButton(preset, selectedSeedValue) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "track-preset-btn";
+    button.textContent = preset.name;
+    button.dataset.seed = String(preset.seed);
+
+    if (String(preset.seed) === String(selectedSeedValue)) {
+      button.classList.add("active");
+    }
+    return button;
+  }
+
+  function openTrackPicker(presets, currentSeedValue) {
+    clearDanglingModalState();
+
+    if (!hasModalElements(trackModal, ["root", "dialog", "presetGrid", "seedInput", "applyBtn", "randomBtn"])) {
+      return Promise.resolve(null);
+    }
+
+    if (modalOpen) {
+      if (activeModal === "track") {
+        return Promise.resolve(null);
+      }
+      closeModal(false);
+    }
+
+    const safePresets = Array.isArray(presets) ? presets : [];
+    trackModal.seedInput.value = String(currentSeedValue ?? "");
+    trackModal.presetGrid.innerHTML = "";
+    for (let i = 0; i < safePresets.length; i += 1) {
+      const preset = safePresets[i];
+      const button = buildTrackPresetButton(preset, trackModal.seedInput.value);
+      button.addEventListener("click", () => {
+        trackModal.seedInput.value = String(preset.seed);
+        const presetButtons = trackModal.presetGrid.querySelectorAll(".track-preset-btn");
+        for (let idx = 0; idx < presetButtons.length; idx += 1) {
+          presetButtons[idx].classList.toggle("active", presetButtons[idx] === button);
+        }
+      });
+      trackModal.presetGrid.appendChild(button);
+    }
+
+    modalOpen = true;
+    activeModal = "track";
+    previousFocused = document.activeElement;
+    trackModal.root.hidden = false;
+
+    return new Promise((resolve) => {
+      modalResolver = resolve;
+      requestAnimationFrame(() => {
+        const firstPreset = trackModal.presetGrid.querySelector(".track-preset-btn");
+        (firstPreset || trackModal.seedInput || trackModal.closeBtn).focus();
+      });
+    });
+  }
+
+  trackModal.applyBtn?.addEventListener("click", () => {
+    closeModal({
+      action: "applySeed",
+      seed: trackModal.seedInput?.value || ""
+    });
+  });
+  trackModal.randomBtn?.addEventListener("click", () => {
+    closeModal({ action: "random" });
+  });
+  trackModal.closeBtn?.addEventListener("click", () => closeModal(null));
+  trackModal.backdrop?.addEventListener("click", () => closeModal(null));
+  trackModal.seedInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      closeModal({
+        action: "applySeed",
+        seed: trackModal.seedInput?.value || ""
+      });
+    }
+  });
 
   function buildCarOptionButton(car, currentCarId) {
     const button = document.createElement("button");
@@ -862,15 +955,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     }
   });
 
-  function confirmNewTrack() {
-    return confirmAction({
-      title: "New track",
-      message: "Generate a new track? This will reset the current episode.",
-      confirmText: "Generate",
-      confirmClass: "primary"
-    });
-  }
-
   function confirmNewRacer() {
     return confirmAction({
       title: "New racer",
@@ -889,12 +973,15 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     });
   }
 
-  function promptSaveRacerName() {
+  function promptSaveRacerName(cars, currentCarId) {
     return openRacerModal({
       title: "Save racer",
-      message: "Name this racer. Leave blank to auto-generate a name.",
+      message: "Name this racer and choose its car color. Leave name blank to auto-generate one.",
       submitText: "Save",
-      nameValue: ""
+      nameValue: "",
+      showCarSelect: true,
+      cars: Array.isArray(cars) ? cars : [],
+      selectedCarId: currentCarId || ""
     });
   }
 
@@ -919,7 +1006,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   elements.newRacerBtn.addEventListener("click", () => handlers.onRequestNewRacer());
   elements.changeCarBtn.addEventListener("click", () => handlers.onRequestCarPicker());
   elements.saveRacerBtn.addEventListener("click", () => handlers.onRequestSaveRacer());
-  elements.applySeedBtn.addEventListener("click", () => handlers.onApplySeed(elements.seedInput.value));
 
   elements.resetDefaultsBtn.addEventListener("click", () => {
     setHyperparams(DEFAULT_HYPERPARAMS, true);
@@ -978,11 +1064,11 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     setRunning,
     updateStats,
     setSavedRacers,
-    confirmNewTrack,
     confirmNewRacer,
     confirmDeleteRacer,
     promptSaveRacerName,
     promptEditRacer,
+    openTrackPicker,
     openCarPicker,
     isModalOpen() {
       clearDanglingModalState();

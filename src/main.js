@@ -87,6 +87,12 @@ let currentCarId = DEFAULT_CAR_ID;
 
 const carById = new Map(CAR_PRESETS.map((car) => [car.id, car]));
 const MAX_SAVED_RACERS = 4;
+const TRACK_PRESETS = Object.freeze([
+  { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
+  { id: "monza", name: "Monza", seed: "704219883" },
+  { id: "silverstone", name: "Silverstone", seed: "156890472" },
+  { id: "suzuka", name: "Suzuka", seed: "902417635" }
+]);
 
 function normalizeBestReturn(value) {
   return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
@@ -313,12 +319,19 @@ function runOneStep() {
 }
 
 async function handleNewTrackRequest() {
-  const confirmed = await ui.confirmNewTrack();
-  if (!confirmed) {
+  const result = await ui.openTrackPicker(TRACK_PRESETS, currentSeed);
+  if (!result) {
     return;
   }
 
-  replaceTrack(randomSeed());
+  if (result.action === "random") {
+    replaceTrack(randomSeed());
+    return;
+  }
+
+  if (result.action === "applySeed") {
+    replaceTrack(result.seed);
+  }
 }
 
 async function handleNewRacerRequest() {
@@ -364,12 +377,13 @@ function getCurrentRacerMetrics() {
   };
 }
 
-function buildSavedRacerPayload(name) {
+function buildSavedRacerPayload(name, carId) {
   const existingIds = new Set(savedRacers.map((item) => item.id));
+  const savedCarId = carById.has(carId) ? carId : currentCarId;
   return {
     id: createSavedRacerId(existingIds),
     name: String(name).slice(0, 48),
-    carId: currentCarId,
+    carId: savedCarId,
     hyperparams: cloneSerializable(hyperparams, { ...hyperparams }),
     agentSnapshot: cloneSerializable(agent.exportSnapshot(), null),
     metrics: cloneSerializable(getCurrentRacerMetrics(), getCurrentRacerMetrics()),
@@ -388,13 +402,14 @@ function applySavedBestReturn(nextBestReturn) {
 }
 
 async function handleSaveRacerRequest() {
-  const result = await ui.promptSaveRacerName();
+  const result = await ui.promptSaveRacerName(CAR_PRESETS, currentCarId);
   if (!result) {
     return;
   }
 
   const chosenName = result.name || randomBizzaroName();
-  const savedPayload = buildSavedRacerPayload(chosenName);
+  const selectedCarId = carById.has(result.carId) ? result.carId : currentCarId;
+  const savedPayload = buildSavedRacerPayload(chosenName, selectedCarId);
 
   savedRacers = persistSavedRacers([...savedRacers, savedPayload]);
 }
@@ -550,13 +565,6 @@ ui.setHandlers({
   onTeamNameChange: (nextTeamName) => {
     teamName = String(nextTeamName || "").trim() || DEFAULT_TEAM_NAME;
     saveTeamName(teamName);
-  },
-  onApplySeed: (seedText) => {
-    if (ui.isModalOpen()) {
-      return;
-    }
-
-    replaceTrack(seedText);
   },
   onHyperparamsChange: (nextHyperparams) => {
     applyHyperparams(nextHyperparams);
