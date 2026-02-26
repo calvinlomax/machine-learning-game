@@ -93,8 +93,36 @@ function normalizeBestReturn(value) {
   return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
 }
 
-function createSavedRacerId() {
-  return `racer-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+function cloneSerializable(value, fallback) {
+  try {
+    if (typeof structuredClone === "function") {
+      return structuredClone(value);
+    }
+  } catch {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return fallback;
+  }
+}
+
+function createSavedRacerId(existingIds = new Set()) {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    let uuid = globalThis.crypto.randomUUID();
+    while (existingIds.has(uuid)) {
+      uuid = globalThis.crypto.randomUUID();
+    }
+    return uuid;
+  }
+
+  let fallbackId = `racer-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  while (existingIds.has(fallbackId)) {
+    fallbackId = `racer-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  }
+  return fallbackId;
 }
 
 function sanitizeSavedRacer(entry, fallbackIndex) {
@@ -102,7 +130,7 @@ function sanitizeSavedRacer(entry, fallbackIndex) {
     return null;
   }
 
-  const agentSnapshot = entry.agentSnapshot;
+  const agentSnapshot = cloneSerializable(entry.agentSnapshot, null);
   if (!agentSnapshot || typeof agentSnapshot !== "object") {
     return null;
   }
@@ -111,13 +139,19 @@ function sanitizeSavedRacer(entry, fallbackIndex) {
   const name = rawName || randomBizzaroName();
   const carId = carById.has(entry.carId) ? entry.carId : DEFAULT_CAR_ID;
 
-  const hyperparamSource = entry.hyperparams || entry.agentSnapshot?.hyperparams || DEFAULT_HYPERPARAMS;
+  const hyperparamSource = cloneSerializable(
+    entry.hyperparams || entry.agentSnapshot?.hyperparams || DEFAULT_HYPERPARAMS,
+    DEFAULT_HYPERPARAMS
+  );
   const sanitizedHyperparams = clampHyperparams({
     ...DEFAULT_HYPERPARAMS,
     ...hyperparamSource
   });
 
-  const metrics = entry.metrics && typeof entry.metrics === "object" ? entry.metrics : {};
+  const metrics = cloneSerializable(
+    entry.metrics && typeof entry.metrics === "object" ? entry.metrics : {},
+    {}
+  );
   const episodes = Math.max(1, Math.floor(Number(metrics.episodes) || 1));
   const bestLapCount = Math.max(0, Math.floor(Number(metrics.bestLapCount) || 0));
   const trainingSteps = Math.max(
@@ -161,20 +195,37 @@ function sanitizeSavedRacers(rawRacers) {
   }
 
   const sanitized = [];
+  const usedIds = new Set();
   for (let i = 0; i < rawRacers.length; i += 1) {
     const racer = sanitizeSavedRacer(rawRacers[i], i);
     if (racer) {
-      sanitized.push(racer);
+      let nextId = racer.id;
+      if (!nextId || usedIds.has(nextId)) {
+        nextId = createSavedRacerId(usedIds);
+      }
+      usedIds.add(nextId);
+      sanitized.push(
+        nextId === racer.id
+          ? racer
+          : {
+              ...racer,
+              id: nextId,
+              updatedAt: Date.now()
+            }
+      );
     }
   }
 
   sanitized.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
-  return sanitized.slice(-MAX_SAVED_RACERS);
+  const trimmed = sanitized.slice(-MAX_SAVED_RACERS);
+  return cloneSerializable(trimmed, []);
 }
 
 function persistSavedRacers(nextSavedRacers) {
-  saveSavedRacers(nextSavedRacers);
-  ui.setSavedRacers(nextSavedRacers, CAR_PRESETS);
+  const canonical = sanitizeSavedRacers(nextSavedRacers);
+  saveSavedRacers(canonical);
+  ui.setSavedRacers(canonical, CAR_PRESETS);
+  return canonical;
 }
 
 let savedRacers = sanitizeSavedRacers(loadSavedRacers());
@@ -315,13 +366,14 @@ function getCurrentRacerMetrics() {
 }
 
 function buildSavedRacerPayload(name) {
+  const existingIds = new Set(savedRacers.map((item) => item.id));
   return {
-    id: createSavedRacerId(),
+    id: createSavedRacerId(existingIds),
     name: String(name).slice(0, 48),
     carId: currentCarId,
-    hyperparams: { ...hyperparams },
-    agentSnapshot: agent.exportSnapshot(),
-    metrics: getCurrentRacerMetrics(),
+    hyperparams: cloneSerializable(hyperparams, { ...hyperparams }),
+    agentSnapshot: cloneSerializable(agent.exportSnapshot(), null),
+    metrics: cloneSerializable(getCurrentRacerMetrics(), getCurrentRacerMetrics()),
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
@@ -345,12 +397,7 @@ async function handleSaveRacerRequest() {
   const chosenName = result.name || randomBizzaroName();
   const savedPayload = buildSavedRacerPayload(chosenName);
 
-  savedRacers = [...savedRacers, savedPayload];
-  if (savedRacers.length > MAX_SAVED_RACERS) {
-    savedRacers = savedRacers.slice(savedRacers.length - MAX_SAVED_RACERS);
-  }
-
-  persistSavedRacers(savedRacers);
+  savedRacers = persistSavedRacers([...savedRacers, savedPayload]);
 }
 
 async function handleDeploySavedRacer(racerId) {
@@ -368,8 +415,9 @@ async function handleDeploySavedRacer(racerId) {
   ui.setHyperparams(nextHyperparams, false);
   applyHyperparams(nextHyperparams);
 
+  const snapshotToDeploy = cloneSerializable(savedRacer.agentSnapshot, null);
   const restored = agent.importSnapshot({
-    ...savedRacer.agentSnapshot,
+    ...(snapshotToDeploy || {}),
     hyperparams: nextHyperparams
   });
 
@@ -402,8 +450,7 @@ async function handleDeleteSavedRacer(racerId) {
     return;
   }
 
-  savedRacers = savedRacers.filter((item) => item.id !== racerId);
-  persistSavedRacers(savedRacers);
+  savedRacers = persistSavedRacers(savedRacers.filter((item) => item.id !== racerId));
 }
 
 async function handleEditSavedRacer(racerId) {
@@ -421,18 +468,18 @@ async function handleEditSavedRacer(racerId) {
   const nextName = result.name ? result.name.slice(0, 48) : racer.name;
   const nextCarId = carById.has(result.carId) ? result.carId : racer.carId;
 
-  savedRacers = savedRacers.map((item, index) =>
-    index === racerIndex
-      ? {
-          ...item,
-          name: nextName || racer.name,
-          carId: nextCarId,
-          updatedAt: Date.now()
-        }
-      : item
+  savedRacers = persistSavedRacers(
+    savedRacers.map((item, index) =>
+      index === racerIndex
+        ? {
+            ...item,
+            name: nextName || racer.name,
+            carId: nextCarId,
+            updatedAt: Date.now()
+          }
+        : item
+    )
   );
-
-  persistSavedRacers(savedRacers);
 }
 
 ui.setHandlers({
@@ -522,7 +569,7 @@ ui.setTeamName(teamName, false);
 ui.setRunning(running);
 saveHyperparams(hyperparams);
 saveTeamName(teamName);
-persistSavedRacers(savedRacers);
+savedRacers = persistSavedRacers(savedRacers);
 
 function renderFrame() {
   const renderState = env.getRenderState();
