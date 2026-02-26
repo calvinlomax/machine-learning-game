@@ -1,18 +1,20 @@
 import { RNG, normalizeSeed, randomSeed } from "./rng.js";
-import { generateTrack, WORLD_HEIGHT, WORLD_WIDTH } from "./trackgen.js";
+import { generateTrack, generateTrackFromShape, WORLD_HEIGHT, WORLD_WIDTH } from "./trackgen.js";
 import { RacingEnv } from "./env.js";
 import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=track-presets-20260226";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=settings-share-20260226";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
+  loadAppSettings,
   loadBestReturn,
   loadHyperparams,
   loadSavedRacers,
   loadTeamName,
+  saveAppSettings,
   saveBestReturn,
   saveHyperparams,
   saveSavedRacers,
@@ -21,71 +23,6 @@ import {
 
 const BASE_URL = import.meta.env?.BASE_URL ?? "/";
 const DEFAULT_TEAM_NAME = "ML1 Academy";
-document.documentElement.dataset.baseUrl = BASE_URL;
-
-const canvas = document.getElementById("game-canvas");
-const renderer = createRenderer(canvas, {
-  worldWidth: WORLD_WIDTH,
-  worldHeight: WORLD_HEIGHT
-});
-
-const persistedHyperparams = loadHyperparams();
-let hyperparams = clampHyperparams({
-  ...DEFAULT_HYPERPARAMS,
-  ...(persistedHyperparams || {})
-});
-
-let bestEpisodeReturn = loadBestReturn();
-if (!Number.isFinite(bestEpisodeReturn)) {
-  bestEpisodeReturn = Number.NEGATIVE_INFINITY;
-}
-
-let teamName = loadTeamName() || DEFAULT_TEAM_NAME;
-
-let currentSeed = randomSeed();
-const envRng = new RNG(currentSeed ^ 0x9e3779b9);
-const agentRng = new RNG(currentSeed ^ 0x85ebca6b);
-
-let track = generateTrack(currentSeed, {
-  worldWidth: WORLD_WIDTH,
-  worldHeight: WORLD_HEIGHT
-});
-
-const env = new RacingEnv({
-  track,
-  rng: envRng,
-  dt: 1 / 30,
-  maxEpisodeSteps: hyperparams.maxEpisodeSteps,
-  actionSmoothing: hyperparams.actionSmoothing,
-  rewardWeights: {
-    progressWeight: hyperparams.progressRewardWeight,
-    offTrackPenalty: hyperparams.offTrackPenalty,
-    speedPenaltyWeight: hyperparams.speedPenaltyWeight
-  }
-});
-
-let observation = env.currentObservation;
-
-const agent = new DQNAgent({
-  observationSize: env.observationSize,
-  actionSize: ACTIONS.length,
-  rng: agentRng,
-  hyperparams
-});
-
-const ui = createUI({
-  initialHyperparams: hyperparams,
-  initialSeed: currentSeed,
-  initialTeamName: teamName
-});
-
-let running = false;
-let episodeNumber = 1;
-let fps = 0;
-let lastStepMs = 0;
-let currentCarId = DEFAULT_CAR_ID;
-
-const carById = new Map(CAR_PRESETS.map((car) => [car.id, car]));
 const MAX_SAVED_RACERS = 4;
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
@@ -94,8 +31,56 @@ const TRACK_PRESETS = Object.freeze([
   { id: "suzuka", name: "Suzuka", seed: "902417635" }
 ]);
 
+const DEFAULT_APP_SETTINGS = Object.freeze({
+  worldWidth: WORLD_WIDTH,
+  worldHeight: WORLD_HEIGHT,
+  trackWidth: 112,
+  trackColor: "#576f57",
+  canvasBgColor: "#1b2b2f",
+  canvasPattern: "diagonal",
+  uiTheme: "light"
+});
+
+document.documentElement.dataset.baseUrl = BASE_URL;
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function sanitizeColor(input, fallback) {
+  const value = String(input ?? "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(value) ? value : fallback;
+}
+
+function sanitizeAppSettings(input) {
+  const source = {
+    ...DEFAULT_APP_SETTINGS,
+    ...(input && typeof input === "object" ? input : {})
+  };
+
+  const allowedPatterns = new Set(["diagonal", "grid", "dots", "solid"]);
+
+  return {
+    worldWidth: Math.round(clamp(Number(source.worldWidth) || WORLD_WIDTH, 480, 1600)),
+    worldHeight: Math.round(clamp(Number(source.worldHeight) || WORLD_HEIGHT, 320, 1200)),
+    trackWidth: Math.round(clamp(Number(source.trackWidth) || 112, 80, 150)),
+    trackColor: sanitizeColor(source.trackColor, DEFAULT_APP_SETTINGS.trackColor),
+    canvasBgColor: sanitizeColor(source.canvasBgColor, DEFAULT_APP_SETTINGS.canvasBgColor),
+    canvasPattern: allowedPatterns.has(source.canvasPattern) ? source.canvasPattern : "diagonal",
+    uiTheme: source.uiTheme === "dark" ? "dark" : "light"
+  };
+}
+
 function normalizeBestReturn(value) {
   return Number.isFinite(value) ? value : Number.NEGATIVE_INFINITY;
+}
+
+function clampSeedInput(seed) {
+  const text = String(seed ?? "").trim();
+  if (!text) {
+    return "1";
+  }
+  return text.length > 9 ? text.slice(0, 9) : text;
 }
 
 function cloneSerializable(value, fallback) {
@@ -130,6 +115,102 @@ function createSavedRacerId(existingIds = new Set()) {
   return fallbackId;
 }
 
+function formatSeconds(secondsValue) {
+  const value = Number(secondsValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "--";
+  }
+  return `${value.toFixed(2)}s`;
+}
+
+const canvas = document.getElementById("game-canvas");
+const persistedSettings = loadAppSettings();
+let appSettings = sanitizeAppSettings({
+  ...DEFAULT_APP_SETTINGS,
+  ...(persistedSettings || {})
+});
+
+const renderer = createRenderer(canvas, {
+  worldWidth: appSettings.worldWidth,
+  worldHeight: appSettings.worldHeight
+});
+renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
+
+const persistedHyperparams = loadHyperparams();
+let hyperparams = clampHyperparams({
+  ...DEFAULT_HYPERPARAMS,
+  ...(persistedHyperparams || {})
+});
+
+let bestEpisodeReturn = loadBestReturn();
+if (!Number.isFinite(bestEpisodeReturn)) {
+  bestEpisodeReturn = Number.NEGATIVE_INFINITY;
+}
+
+let teamName = loadTeamName() || DEFAULT_TEAM_NAME;
+let currentSeed = randomSeed();
+
+const envRng = new RNG(currentSeed ^ 0x9e3779b9);
+const agentRng = new RNG(currentSeed ^ 0x85ebca6b);
+
+let trackSource = {
+  type: "seed",
+  seed: currentSeed,
+  name: null,
+  shapePointsNorm: null
+};
+
+let track = generateTrack(currentSeed, {
+  worldWidth: appSettings.worldWidth,
+  worldHeight: appSettings.worldHeight,
+  trackWidth: appSettings.trackWidth
+});
+
+const env = new RacingEnv({
+  track,
+  rng: envRng,
+  dt: 1 / 30,
+  maxEpisodeSteps: hyperparams.maxEpisodeSteps,
+  actionSmoothing: hyperparams.actionSmoothing,
+  rewardWeights: {
+    progressWeight: hyperparams.progressRewardWeight,
+    offTrackPenalty: hyperparams.offTrackPenalty,
+    speedPenaltyWeight: hyperparams.speedPenaltyWeight
+  }
+});
+
+let observation = env.currentObservation;
+
+const agent = new DQNAgent({
+  observationSize: env.observationSize,
+  actionSize: ACTIONS.length,
+  rng: agentRng,
+  hyperparams
+});
+
+const ui = createUI({
+  initialHyperparams: hyperparams,
+  initialSeed: currentSeed,
+  initialTeamName: teamName,
+  initialSettings: appSettings
+});
+
+let running = false;
+let episodeNumber = 1;
+let fps = 0;
+let lastStepMs = 0;
+let currentCarId = DEFAULT_CAR_ID;
+let currentDriverName = "Current Racer";
+let deployedRacerId = null;
+
+const drawState = {
+  active: false,
+  isPointerDown: false,
+  points: []
+};
+
+const carById = new Map(CAR_PRESETS.map((car) => [car.id, car]));
+
 function sanitizeSavedRacer(entry, fallbackIndex) {
   if (!entry || typeof entry !== "object") {
     return null;
@@ -157,6 +238,7 @@ function sanitizeSavedRacer(entry, fallbackIndex) {
     entry.metrics && typeof entry.metrics === "object" ? entry.metrics : {},
     {}
   );
+
   const episodes = Math.max(1, Math.floor(Number(metrics.episodes) || 1));
   const bestLapCount = Math.max(0, Math.floor(Number(metrics.bestLapCount) || 0));
   const trainingSteps = Math.max(
@@ -203,28 +285,32 @@ function sanitizeSavedRacers(rawRacers) {
   const usedIds = new Set();
   for (let i = 0; i < rawRacers.length; i += 1) {
     const racer = sanitizeSavedRacer(rawRacers[i], i);
-    if (racer) {
-      let nextId = racer.id;
-      if (!nextId || usedIds.has(nextId)) {
-        nextId = createSavedRacerId(usedIds);
-      }
-      usedIds.add(nextId);
-      sanitized.push(
-        nextId === racer.id
-          ? racer
-          : {
-              ...racer,
-              id: nextId,
-              updatedAt: Date.now()
-            }
-      );
+    if (!racer) {
+      continue;
     }
+
+    let nextId = racer.id;
+    if (!nextId || usedIds.has(nextId)) {
+      nextId = createSavedRacerId(usedIds);
+    }
+
+    usedIds.add(nextId);
+    sanitized.push(
+      nextId === racer.id
+        ? racer
+        : {
+            ...racer,
+            id: nextId,
+            updatedAt: Date.now()
+          }
+    );
   }
 
   sanitized.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
-  const trimmed = sanitized.slice(-MAX_SAVED_RACERS);
-  return cloneSerializable(trimmed, []);
+  return cloneSerializable(sanitized.slice(-MAX_SAVED_RACERS), []);
 }
+
+let savedRacers = sanitizeSavedRacers(loadSavedRacers());
 
 function persistSavedRacers(nextSavedRacers) {
   const canonical = sanitizeSavedRacers(nextSavedRacers);
@@ -232,12 +318,6 @@ function persistSavedRacers(nextSavedRacers) {
   ui.setSavedRacers(canonical, CAR_PRESETS);
   return canonical;
 }
-
-let savedRacers = sanitizeSavedRacers(loadSavedRacers());
-
-const fixedStepMs = env.dt * 1000;
-let accumulatorMs = 0;
-let lastFrameTime = performance.now();
 
 function applyHyperparams(nextHyperparams) {
   hyperparams = clampHyperparams(nextHyperparams);
@@ -256,19 +336,93 @@ function applyHyperparams(nextHyperparams) {
   saveHyperparams(hyperparams);
 }
 
-function replaceTrack(seed) {
-  const seedString = String(seed ?? "");
-  const normalizedSeedString = seedString.length > 9 ? seedString.slice(0, 9) : seedString;
-  const parsedSeed = normalizeSeed(normalizedSeedString);
-  currentSeed = parsedSeed;
-  ui.setSeedInput(parsedSeed);
+function toNormalizedShapePoints(worldPoints) {
+  const safe = Array.isArray(worldPoints) ? worldPoints : [];
+  return safe
+    .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+    .map((point) => ({
+      x: clamp(point.x / appSettings.worldWidth, 0, 1),
+      y: clamp(point.y / appSettings.worldHeight, 0, 1)
+    }));
+}
 
-  track = generateTrack(parsedSeed, {
-    worldWidth: WORLD_WIDTH,
-    worldHeight: WORLD_HEIGHT
+function fromNormalizedShapePoints(normalizedPoints) {
+  const safe = Array.isArray(normalizedPoints) ? normalizedPoints : [];
+  return safe
+    .filter((point) => Number.isFinite(point?.x) && Number.isFinite(point?.y))
+    .map((point) => ({
+      x: clamp(point.x, 0, 1) * appSettings.worldWidth,
+      y: clamp(point.y, 0, 1) * appSettings.worldHeight
+    }));
+}
+
+function regenerateTrackFromSource() {
+  if (trackSource.type === "shape" && Array.isArray(trackSource.shapePointsNorm) && trackSource.shapePointsNorm.length >= 4) {
+    const worldPoints = fromNormalizedShapePoints(trackSource.shapePointsNorm);
+    track = generateTrackFromShape(worldPoints, {
+      seed: currentSeed,
+      worldWidth: appSettings.worldWidth,
+      worldHeight: appSettings.worldHeight,
+      trackWidth: appSettings.trackWidth
+    });
+  } else {
+    track = generateTrack(trackSource.seed ?? currentSeed, {
+      worldWidth: appSettings.worldWidth,
+      worldHeight: appSettings.worldHeight,
+      trackWidth: appSettings.trackWidth
+    });
+    currentSeed = track.seed;
+    trackSource.seed = currentSeed;
+  }
+
+  ui.setSeedInput(currentSeed);
+  observation = env.setTrack(track);
+}
+
+function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
+  appSettings = sanitizeAppSettings({
+    ...appSettings,
+    ...(nextSettings || {})
   });
 
-  observation = env.setTrack(track);
+  renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
+  ui.setSettings(appSettings);
+  ui.applyTheme(appSettings.uiTheme);
+  saveAppSettings(appSettings);
+
+  if (regenerateTrack) {
+    regenerateTrackFromSource();
+  }
+}
+
+function setTrackFromSeed(seed, { name = null } = {}) {
+  const normalizedSeed = normalizeSeed(clampSeedInput(seed));
+  currentSeed = normalizedSeed;
+  trackSource = {
+    type: "seed",
+    seed: normalizedSeed,
+    name: name || null,
+    shapePointsNorm: null
+  };
+
+  regenerateTrackFromSource();
+}
+
+function setTrackFromShape(shapePoints, { name = "Custom Shape" } = {}) {
+  const normalized = toNormalizedShapePoints(shapePoints);
+  if (normalized.length < 4) {
+    return false;
+  }
+
+  trackSource = {
+    type: "shape",
+    seed: currentSeed,
+    name,
+    shapePointsNorm: normalized
+  };
+
+  regenerateTrackFromSource();
+  return true;
 }
 
 function resetEpisode({ countAsNewEpisode = true } = {}) {
@@ -318,20 +472,176 @@ function runOneStep() {
   }
 }
 
+function canvasEventToWorldPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) {
+    return null;
+  }
+
+  const x = ((event.clientX - rect.left) / rect.width) * appSettings.worldWidth;
+  const y = ((event.clientY - rect.top) / rect.height) * appSettings.worldHeight;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+
+  return {
+    x: clamp(x, 0, appSettings.worldWidth),
+    y: clamp(y, 0, appSettings.worldHeight)
+  };
+}
+
+function appendDrawPoint(point) {
+  if (!point) {
+    return;
+  }
+
+  if (!drawState.points.length) {
+    drawState.points.push(point);
+    ui.setDrawMode(true, drawState.points.length);
+    return;
+  }
+
+  const prev = drawState.points[drawState.points.length - 1];
+  if (Math.hypot(point.x - prev.x, point.y - prev.y) >= 4) {
+    drawState.points.push(point);
+    ui.setDrawMode(true, drawState.points.length);
+  }
+}
+
+function startDrawMode() {
+  if (drawState.active) {
+    return;
+  }
+
+  running = false;
+  ui.setRunning(false);
+
+  drawState.active = true;
+  drawState.isPointerDown = false;
+  drawState.points = [];
+  ui.setDrawMode(true, 0);
+}
+
+function cancelDrawMode() {
+  if (!drawState.active) {
+    return;
+  }
+
+  drawState.active = false;
+  drawState.isPointerDown = false;
+  drawState.points = [];
+  ui.setDrawMode(false, 0);
+}
+
+function finishDrawMode() {
+  if (!drawState.active) {
+    return;
+  }
+
+  if (drawState.points.length < 8) {
+    window.alert("Draw at least 8 points to build a valid shape track.");
+    return;
+  }
+
+  const created = setTrackFromShape(drawState.points, { name: "Custom Shape" });
+  if (!created) {
+    window.alert("Could not create track from the drawn shape. Try drawing a longer loop.");
+    return;
+  }
+
+  cancelDrawMode();
+}
+
+canvas.style.touchAction = "none";
+canvas.addEventListener("pointerdown", (event) => {
+  if (!drawState.active || ui.isModalOpen()) {
+    return;
+  }
+
+  event.preventDefault();
+  drawState.isPointerDown = true;
+  if (typeof canvas.setPointerCapture === "function") {
+    canvas.setPointerCapture(event.pointerId);
+  }
+
+  appendDrawPoint(canvasEventToWorldPoint(event));
+});
+
+canvas.addEventListener("pointermove", (event) => {
+  if (!drawState.active || !drawState.isPointerDown || ui.isModalOpen()) {
+    return;
+  }
+
+  event.preventDefault();
+  appendDrawPoint(canvasEventToWorldPoint(event));
+});
+
+canvas.addEventListener("pointerup", () => {
+  if (!drawState.active) {
+    return;
+  }
+  drawState.isPointerDown = false;
+});
+
+canvas.addEventListener("pointercancel", () => {
+  if (!drawState.active) {
+    return;
+  }
+  drawState.isPointerDown = false;
+});
+
+window.addEventListener("keydown", (event) => {
+  if (!drawState.active || ui.isModalOpen()) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    cancelDrawMode();
+    return;
+  }
+
+  if (event.key === "Enter") {
+    event.preventDefault();
+    finishDrawMode();
+  }
+});
+
 async function handleNewTrackRequest() {
   const result = await ui.openTrackPicker(TRACK_PRESETS, currentSeed);
   if (!result) {
     return;
   }
 
+  if (result.action === "drawShape") {
+    startDrawMode();
+    return;
+  }
+
   if (result.action === "random") {
-    replaceTrack(randomSeed());
+    setTrackFromSeed(randomSeed(), { name: null });
     return;
   }
 
   if (result.action === "applySeed") {
-    replaceTrack(result.seed);
+    setTrackFromSeed(result.seed, { name: result.presetName || null });
   }
+}
+
+async function handleSettingsRequest() {
+  const result = await ui.openSettingsModal(appSettings);
+  if (!result) {
+    return;
+  }
+
+  const nextSettings = sanitizeAppSettings(result);
+  const geometryChanged =
+    nextSettings.worldWidth !== appSettings.worldWidth ||
+    nextSettings.worldHeight !== appSettings.worldHeight ||
+    nextSettings.trackWidth !== appSettings.trackWidth;
+
+  applyAppSettings(nextSettings, { regenerateTrack: geometryChanged });
 }
 
 async function handleNewRacerRequest() {
@@ -346,6 +656,8 @@ async function handleNewRacerRequest() {
   bestEpisodeReturn = Number.NEGATIVE_INFINITY;
   episodeNumber = 1;
   observation = env.resetEpisode(true);
+  currentDriverName = "Current Racer";
+  deployedRacerId = null;
 }
 
 async function handleCarPickerRequest() {
@@ -380,6 +692,7 @@ function getCurrentRacerMetrics() {
 function buildSavedRacerPayload(name, carId) {
   const existingIds = new Set(savedRacers.map((item) => item.id));
   const savedCarId = carById.has(carId) ? carId : currentCarId;
+
   return {
     id: createSavedRacerId(existingIds),
     name: String(name).slice(0, 48),
@@ -412,6 +725,7 @@ async function handleSaveRacerRequest() {
   const savedPayload = buildSavedRacerPayload(chosenName, selectedCarId);
 
   savedRacers = persistSavedRacers([...savedRacers, savedPayload]);
+  currentDriverName = chosenName;
 }
 
 async function handleDeploySavedRacer(racerId) {
@@ -451,6 +765,8 @@ async function handleDeploySavedRacer(racerId) {
   });
 
   observation = env.resetEpisode(true);
+  currentDriverName = savedRacer.name || "Current Racer";
+  deployedRacerId = savedRacer.id;
 }
 
 async function handleDeleteSavedRacer(racerId) {
@@ -465,6 +781,11 @@ async function handleDeleteSavedRacer(racerId) {
   }
 
   savedRacers = persistSavedRacers(savedRacers.filter((item) => item.id !== racerId));
+
+  if (deployedRacerId === racerId) {
+    deployedRacerId = null;
+    currentDriverName = "Current Racer";
+  }
 }
 
 async function handleEditSavedRacer(racerId) {
@@ -494,15 +815,167 @@ async function handleEditSavedRacer(racerId) {
         : item
     )
   );
+
+  if (deployedRacerId === racerId) {
+    currentDriverName = nextName || currentDriverName;
+  }
 }
+
+function getShareCandidateList() {
+  const candidates = savedRacers.map((saved) => ({
+    id: saved.id,
+    name: saved.name || "Unnamed Racer",
+    metrics: {
+      episodes: Math.max(1, Math.floor(Number(saved.metrics?.episodes) || 1)),
+      bestLapCount: Math.max(0, Math.floor(Number(saved.metrics?.bestLapCount) || 0)),
+      bestLapTimeSec: Number(saved.metrics?.bestLapTimeSec),
+      bestReturn: Number(saved.metrics?.bestReturn)
+    }
+  }));
+
+  const currentMetrics = getCurrentRacerMetrics();
+  const currentCandidate = {
+    id: deployedRacerId || "current",
+    name: currentDriverName || "Current Racer",
+    metrics: {
+      episodes: Math.max(1, Math.floor(Number(currentMetrics.episodes) || 1)),
+      bestLapCount: Math.max(0, Math.floor(Number(currentMetrics.bestLapCount) || 0)),
+      bestLapTimeSec: Number(currentMetrics.bestLapTimeSec),
+      bestReturn: Number(currentMetrics.bestReturn)
+    }
+  };
+
+  const index = candidates.findIndex((candidate) => candidate.id === currentCandidate.id);
+  if (index >= 0) {
+    candidates[index] = currentCandidate;
+  } else {
+    candidates.push(currentCandidate);
+  }
+
+  return candidates;
+}
+
+function pickBestShareCandidate(candidates) {
+  let bestByTime = null;
+  for (let i = 0; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
+    const time = Number(candidate.metrics?.bestLapTimeSec);
+    if (!Number.isFinite(time) || time <= 0) {
+      continue;
+    }
+
+    if (!bestByTime) {
+      bestByTime = candidate;
+      continue;
+    }
+
+    const bestTime = Number(bestByTime.metrics?.bestLapTimeSec);
+    if (time < bestTime) {
+      bestByTime = candidate;
+    } else if (time === bestTime) {
+      const laps = Number(candidate.metrics?.bestLapCount) || 0;
+      const bestLaps = Number(bestByTime.metrics?.bestLapCount) || 0;
+      if (laps > bestLaps) {
+        bestByTime = candidate;
+      }
+    }
+  }
+
+  if (bestByTime) {
+    return bestByTime;
+  }
+
+  let fallback = candidates[0] || {
+    name: "Current Racer",
+    metrics: { episodes: episodeNumber, bestLapCount: 0, bestLapTimeSec: null }
+  };
+
+  for (let i = 1; i < candidates.length; i += 1) {
+    const candidate = candidates[i];
+    const laps = Number(candidate.metrics?.bestLapCount) || 0;
+    const fallbackLaps = Number(fallback.metrics?.bestLapCount) || 0;
+    if (laps > fallbackLaps) {
+      fallback = candidate;
+      continue;
+    }
+
+    if (laps === fallbackLaps) {
+      const value = Number(candidate.metrics?.bestReturn);
+      const fallbackValue = Number(fallback.metrics?.bestReturn);
+      if (value > fallbackValue) {
+        fallback = candidate;
+      }
+    }
+  }
+
+  return fallback;
+}
+
+function buildShareText() {
+  const candidates = getShareCandidateList();
+  const best = pickBestShareCandidate(candidates);
+
+  const bestName = best?.name || "Current Racer";
+  const bestTimeSec = Number(best?.metrics?.bestLapTimeSec);
+  const bestLaps = Math.max(0, Math.floor(Number(best?.metrics?.bestLapCount) || 0));
+  const bestEpisodes = Math.max(1, Math.floor(Number(best?.metrics?.episodes) || 1));
+
+  const trackLabel = trackSource.name
+    ? trackSource.name
+    : `Seed ${currentSeed}`;
+
+  return [
+    "ML1 Racer Share",
+    `Best driver: ${bestName}`,
+    `Best time: ${formatSeconds(bestTimeSec)}`,
+    `Max laps: ${bestLaps}`,
+    `Episodes: ${bestEpisodes}`,
+    `Track: ${trackLabel}`
+  ].join("\n");
+}
+
+async function handleShareRequest() {
+  const shareText = buildShareText();
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: "ML1 Racer Result",
+        text: shareText
+      });
+      return;
+    } catch {
+      // fall through to clipboard/manual fallback
+    }
+  }
+
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    try {
+      await navigator.clipboard.writeText(shareText);
+      window.alert("Share summary copied to clipboard.");
+      return;
+    } catch {
+      // fall through to manual fallback
+    }
+  }
+
+  window.prompt("Copy and share this summary:", shareText);
+}
+
+const fixedStepMs = env.dt * 1000;
+let accumulatorMs = 0;
+let lastFrameTime = performance.now();
 
 ui.setHandlers({
   onStartPause: () => {
+    if (drawState.active) {
+      return;
+    }
     running = !running;
     ui.setRunning(running);
   },
   onStep: () => {
-    if (ui.isModalOpen()) {
+    if (ui.isModalOpen() || drawState.active) {
       return;
     }
 
@@ -511,55 +984,75 @@ ui.setHandlers({
     lastStepMs = performance.now() - stepStart;
   },
   onEpisodeReset: () => {
-    if (ui.isModalOpen()) {
+    if (ui.isModalOpen() || drawState.active) {
       return;
     }
-
     resetEpisode({ countAsNewEpisode: true });
   },
   onRequestNewTrack: () => {
     if (ui.isModalOpen()) {
       return;
     }
-
+    if (drawState.active) {
+      cancelDrawMode();
+    }
     handleNewTrackRequest();
   },
   onRequestNewRacer: () => {
     if (ui.isModalOpen()) {
       return;
     }
-
     handleNewRacerRequest();
   },
   onRequestCarPicker: () => {
+    if (ui.isModalOpen()) {
+      return;
+    }
     handleCarPickerRequest();
   },
   onRequestSaveRacer: () => {
     if (ui.isModalOpen()) {
       return;
     }
-
     handleSaveRacerRequest();
+  },
+  onRequestSettings: () => {
+    if (ui.isModalOpen()) {
+      return;
+    }
+    if (drawState.active) {
+      cancelDrawMode();
+    }
+    handleSettingsRequest();
+  },
+  onRequestShare: () => {
+    if (ui.isModalOpen()) {
+      return;
+    }
+    handleShareRequest();
+  },
+  onFinishDrawTrack: () => {
+    finishDrawMode();
+  },
+  onCancelDrawTrack: () => {
+    cancelDrawMode();
   },
   onDeploySavedRacer: (racerId) => {
     if (ui.isModalOpen()) {
       return;
     }
-
     handleDeploySavedRacer(racerId);
   },
   onDeleteSavedRacer: (racerId) => {
     if (ui.isModalOpen()) {
       return;
     }
-
     handleDeleteSavedRacer(racerId);
   },
   onEditSavedRacer: (racerId) => {
     if (ui.isModalOpen()) {
       return;
     }
-
     handleEditSavedRacer(racerId);
   },
   onTeamNameChange: (nextTeamName) => {
@@ -574,8 +1067,13 @@ ui.setHandlers({
 ui.setHyperparams(hyperparams, false);
 ui.setTeamName(teamName, false);
 ui.setRunning(running);
+ui.setSettings(appSettings);
+ui.applyTheme(appSettings.uiTheme);
+ui.setDrawMode(false, 0);
+
 saveHyperparams(hyperparams);
 saveTeamName(teamName);
+saveAppSettings(appSettings);
 savedRacers = persistSavedRacers(savedRacers);
 
 function renderFrame() {
@@ -589,7 +1087,13 @@ function renderFrame() {
     sensorHits: renderState.sensorHits,
     showSensors: renderOptions.showSensors,
     showTrail: renderOptions.showTrail,
-    carStyle: carById.get(currentCarId)
+    carStyle: carById.get(currentCarId),
+    visuals: {
+      trackColor: appSettings.trackColor,
+      canvasBgColor: appSettings.canvasBgColor,
+      canvasPattern: appSettings.canvasPattern
+    },
+    drawShapePoints: drawState.active ? drawState.points : null
   });
 
   ui.updateStats({
@@ -622,7 +1126,7 @@ function loop(timestamp) {
     fps = fps === 0 ? currentFps : fps * 0.9 + currentFps * 0.1;
   }
 
-  if (running && !ui.isModalOpen()) {
+  if (running && !ui.isModalOpen() && !drawState.active) {
     accumulatorMs += frameDelta;
 
     while (accumulatorMs >= fixedStepMs) {

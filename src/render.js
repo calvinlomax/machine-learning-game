@@ -22,41 +22,116 @@ const DEFAULT_CAR_STYLE = {
 export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } = {}) {
   const ctx = canvas.getContext("2d", { alpha: false });
   let dpr = Math.max(1, window.devicePixelRatio || 1);
+  let currentWorldWidth = worldWidth;
+  let currentWorldHeight = worldHeight;
 
   function resizeForDpr() {
     const nextDpr = Math.max(1, window.devicePixelRatio || 1);
-    if (nextDpr !== dpr || canvas.width !== Math.floor(worldWidth * dpr) || canvas.height !== Math.floor(worldHeight * dpr)) {
+    if (
+      nextDpr !== dpr ||
+      canvas.width !== Math.floor(currentWorldWidth * dpr) ||
+      canvas.height !== Math.floor(currentWorldHeight * dpr)
+    ) {
       dpr = nextDpr;
-      canvas.width = Math.floor(worldWidth * dpr);
-      canvas.height = Math.floor(worldHeight * dpr);
+      canvas.width = Math.floor(currentWorldWidth * dpr);
+      canvas.height = Math.floor(currentWorldHeight * dpr);
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    canvas.style.aspectRatio = `${currentWorldWidth} / ${currentWorldHeight}`;
   }
 
-  function drawBackground() {
-    const gradient = ctx.createLinearGradient(0, 0, worldWidth, worldHeight);
-    gradient.addColorStop(0, "#1b2b2f");
-    gradient.addColorStop(1, "#253d42");
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, worldWidth, worldHeight);
+  function tintHex(hexColor, factor) {
+    const safe = String(hexColor || "").replace("#", "");
+    const expanded = safe.length === 3 ? safe.replace(/(.)/g, "$1$1") : safe;
+    if (!/^[0-9a-fA-F]{6}$/.test(expanded)) {
+      return "#1b2b2f";
+    }
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    for (let x = -worldHeight; x < worldWidth + worldHeight; x += 42) {
+    const clampChannel = (value) => Math.max(0, Math.min(255, value));
+    const r = clampChannel(parseInt(expanded.slice(0, 2), 16) * factor);
+    const g = clampChannel(parseInt(expanded.slice(2, 4), 16) * factor);
+    const b = clampChannel(parseInt(expanded.slice(4, 6), 16) * factor);
+    return `rgb(${Math.round(r)} ${Math.round(g)} ${Math.round(b)})`;
+  }
+
+  function drawBackground(visuals = {}) {
+    const base = visuals.canvasBgColor || "#1b2b2f";
+    const pattern = visuals.canvasPattern || "diagonal";
+    const gradient = ctx.createLinearGradient(0, 0, currentWorldWidth, currentWorldHeight);
+    gradient.addColorStop(0, tintHex(base, 1.05));
+    gradient.addColorStop(1, tintHex(base, 0.82));
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, currentWorldWidth, currentWorldHeight);
+
+    if (pattern === "solid") {
+      return;
+    }
+
+    if (pattern === "grid") {
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.07)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= currentWorldWidth; x += 36) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, currentWorldHeight);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= currentWorldHeight; y += 36) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(currentWorldWidth, y);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    if (pattern === "dots") {
+      ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+      for (let y = 16; y < currentWorldHeight; y += 28) {
+        for (let x = 16; x < currentWorldWidth; x += 28) {
+          ctx.beginPath();
+          ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      return;
+    }
+
+    for (let x = -currentWorldHeight; x < currentWorldWidth + currentWorldHeight; x += 42) {
       ctx.beginPath();
       ctx.moveTo(x, 0);
-      ctx.lineTo(x + worldHeight, worldHeight);
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+      ctx.lineTo(x + currentWorldHeight, currentWorldHeight);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
       ctx.lineWidth = 1;
       ctx.stroke();
     }
   }
 
-  function drawTrack(track) {
+  function drawPendingShape(shapePoints) {
+    if (!Array.isArray(shapePoints) || shapePoints.length < 2) {
+      return;
+    }
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255, 221, 123, 0.9)";
+    drawPolyline(ctx, shapePoints, false);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255, 221, 123, 0.95)";
+    for (let i = 0; i < shapePoints.length; i += 1) {
+      const point = shapePoints[i];
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, i === 0 ? 3 : 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawTrack(track, visuals = {}) {
     if (!track) {
       return;
     }
 
-    const roadColor = "#576f57";
+    const roadColor = visuals.trackColor || "#576f57";
     const boundaryColor = "#f4ead2";
 
     ctx.fillStyle = roadColor;
@@ -281,16 +356,35 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     ctx.restore();
   }
 
-  function render({ track, car, trail, sensorHits, showSensors, showTrail, carStyle }) {
+  function setWorldSize(width, height) {
+    const nextWidth = Number.isFinite(width) ? Math.max(480, Math.floor(width)) : currentWorldWidth;
+    const nextHeight = Number.isFinite(height) ? Math.max(320, Math.floor(height)) : currentWorldHeight;
+    currentWorldWidth = nextWidth;
+    currentWorldHeight = nextHeight;
     resizeForDpr();
-    drawBackground();
-    drawTrack(track);
+  }
+
+  function render({
+    track,
+    car,
+    trail,
+    sensorHits,
+    showSensors,
+    showTrail,
+    carStyle,
+    visuals,
+    drawShapePoints
+  }) {
+    resizeForDpr();
+    drawBackground(visuals);
+    drawTrack(track, visuals);
     if (showTrail) {
       drawTrail(trail);
     }
     if (showSensors) {
       drawSensors(car, sensorHits);
     }
+    drawPendingShape(drawShapePoints);
     drawCar(car, carStyle);
   }
 
@@ -298,6 +392,7 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
 
   return {
     render,
-    resizeForDpr
+    resizeForDpr,
+    setWorldSize
   };
 }

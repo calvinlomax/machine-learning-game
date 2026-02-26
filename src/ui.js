@@ -43,6 +43,14 @@ function sanitizeTeamName(value) {
   return text || "ML1 Academy";
 }
 
+function sanitizeColor(value, fallback) {
+  const text = String(value ?? "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(text)) {
+    return text;
+  }
+  return fallback;
+}
+
 const PARAM_DEFS = [
   {
     id: "learningRate",
@@ -213,7 +221,7 @@ function getFocusableElements(root) {
   return Array.from(root.querySelectorAll(selector)).filter((el) => !el.hasAttribute("disabled"));
 }
 
-export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
+export function createUI({ initialHyperparams, initialSeed, initialTeamName, initialSettings }) {
   const elements = {
     startPauseBtn: document.getElementById("start-pause-btn"),
     stepBtn: document.getElementById("step-btn"),
@@ -222,6 +230,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     newRacerBtn: document.getElementById("new-racer-btn"),
     changeCarBtn: document.getElementById("change-car-btn"),
     saveRacerBtn: document.getElementById("save-racer-btn"),
+    settingsBtn: document.getElementById("settings-btn"),
+    shareBtn: document.getElementById("share-btn"),
     seedInput: document.getElementById("seed-input"),
     resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
     toggleSensors: document.getElementById("toggle-sensors"),
@@ -229,7 +239,11 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     sliderContainer: document.getElementById("training-sliders"),
     savedRacerList: document.getElementById("saved-racer-list"),
     teamNameDisplay: document.getElementById("team-name-display"),
-    teamNameInput: document.getElementById("team-name-input")
+    teamNameInput: document.getElementById("team-name-input"),
+    drawTrackPanel: document.getElementById("draw-track-panel"),
+    drawTrackStatus: document.getElementById("draw-track-status"),
+    drawTrackFinishBtn: document.getElementById("draw-track-finish-btn"),
+    drawTrackCancelBtn: document.getElementById("draw-track-cancel-btn")
   };
 
   const stats = {
@@ -273,6 +287,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     root: document.getElementById("track-modal-root"),
     dialog: document.querySelector("#track-modal-root .track-modal"),
     presetGrid: document.getElementById("track-preset-grid"),
+    drawBtn: document.getElementById("draw-track-btn"),
     seedInput: document.getElementById("seed-input"),
     applyBtn: document.getElementById("apply-seed-btn"),
     randomBtn: document.getElementById("track-random-btn"),
@@ -293,6 +308,24 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     backdrop: document.querySelector("#racer-modal-root .modal-backdrop")
   };
 
+  const settingsModal = {
+    root: document.getElementById("settings-modal-root"),
+    dialog: document.querySelector("#settings-modal-root .settings-modal"),
+    widthInput: document.getElementById("settings-world-width"),
+    heightInput: document.getElementById("settings-world-height"),
+    trackWidthInput: document.getElementById("settings-track-width"),
+    trackWidthOutput: document.getElementById("settings-track-width-value"),
+    trackColorInput: document.getElementById("settings-track-color"),
+    canvasBgInput: document.getElementById("settings-canvas-bg"),
+    canvasPatternSelect: document.getElementById("settings-canvas-pattern"),
+    uiThemeSelect: document.getElementById("settings-ui-theme"),
+    helpBtn: document.getElementById("settings-help-btn"),
+    helpPop: document.getElementById("settings-help-pop"),
+    cancelBtn: document.getElementById("settings-cancel-btn"),
+    applyBtn: document.getElementById("settings-apply-btn"),
+    backdrop: document.querySelector("#settings-modal-root .modal-backdrop")
+  };
+
   const handlers = {
     onStartPause: () => {},
     onStep: () => {},
@@ -301,6 +334,10 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     onRequestNewRacer: () => {},
     onRequestCarPicker: () => {},
     onRequestSaveRacer: () => {},
+    onRequestSettings: () => {},
+    onRequestShare: () => {},
+    onFinishDrawTrack: () => {},
+    onCancelDrawTrack: () => {},
     onDeploySavedRacer: () => {},
     onDeleteSavedRacer: () => {},
     onEditSavedRacer: () => {},
@@ -311,6 +348,16 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   let hyperparams = clampHyperparams(initialHyperparams);
   let teamName = sanitizeTeamName(initialTeamName);
   let editingTeamName = false;
+  let drawModeActive = false;
+  let settings = {
+    worldWidth: Number(initialSettings?.worldWidth) || 900,
+    worldHeight: Number(initialSettings?.worldHeight) || 600,
+    trackWidth: Number(initialSettings?.trackWidth) || 112,
+    trackColor: sanitizeColor(initialSettings?.trackColor, "#576f57"),
+    canvasBgColor: sanitizeColor(initialSettings?.canvasBgColor, "#1b2b2f"),
+    canvasPattern: initialSettings?.canvasPattern || "diagonal",
+    uiTheme: initialSettings?.uiTheme === "dark" ? "dark" : "light"
+  };
   const sliderControls = new Map();
 
   function notifyHyperparamChange() {
@@ -443,6 +490,27 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     elements.teamNameInput.hidden = true;
     elements.teamNameDisplay.hidden = false;
     elements.teamNameDisplay.focus();
+  }
+
+  function applyTheme(theme) {
+    const nextTheme = theme === "dark" ? "dark" : "light";
+    settings.uiTheme = nextTheme;
+    document.documentElement.dataset.theme = nextTheme;
+    if (settingsModal.uiThemeSelect) {
+      settingsModal.uiThemeSelect.value = nextTheme;
+    }
+  }
+
+  function setDrawMode(active, pointCount = 0) {
+    drawModeActive = Boolean(active);
+    if (!elements.drawTrackPanel || !elements.drawTrackStatus) {
+      return;
+    }
+
+    elements.drawTrackPanel.hidden = !drawModeActive;
+    if (drawModeActive) {
+      elements.drawTrackStatus.textContent = `Draw mode: ${Math.max(0, Math.floor(pointCount))} points. Drag to sketch, then finish.`;
+    }
   }
 
   function setRunning(isRunning) {
@@ -594,8 +662,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     const trackVisible = trackModal.root && !trackModal.root.hidden;
     const carVisible = carModal.root && !carModal.root.hidden;
     const racerVisible = racerModal.root && !racerModal.root.hidden;
+    const settingsVisible = settingsModal.root && !settingsModal.root.hidden;
 
-    if (!confirmVisible && !trackVisible && !carVisible && !racerVisible) {
+    if (!confirmVisible && !trackVisible && !carVisible && !racerVisible && !settingsVisible) {
       modalOpen = false;
       activeModal = null;
       modalResolver = null;
@@ -615,6 +684,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     if (activeModal === "racer") {
       return racerModal.dialog;
     }
+    if (activeModal === "settings") {
+      return settingsModal.dialog;
+    }
     return null;
   }
 
@@ -631,6 +703,11 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
       carModal.root.hidden = true;
     } else if (activeModal === "racer") {
       racerModal.root.hidden = true;
+    } else if (activeModal === "settings") {
+      settingsModal.root.hidden = true;
+      if (settingsModal.helpPop) {
+        settingsModal.helpPop.hidden = true;
+      }
     }
 
     modalOpen = false;
@@ -727,6 +804,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     button.className = "track-preset-btn";
     button.textContent = preset.name;
     button.dataset.seed = String(preset.seed);
+    button.dataset.presetName = String(preset.name);
 
     if (String(preset.seed) === String(selectedSeedValue)) {
       button.classList.add("active");
@@ -737,7 +815,17 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   function openTrackPicker(presets, currentSeedValue) {
     clearDanglingModalState();
 
-    if (!hasModalElements(trackModal, ["root", "dialog", "presetGrid", "seedInput", "applyBtn", "randomBtn"])) {
+    if (
+      !hasModalElements(trackModal, [
+        "root",
+        "dialog",
+        "presetGrid",
+        "drawBtn",
+        "seedInput",
+        "applyBtn",
+        "randomBtn"
+      ])
+    ) {
       return Promise.resolve(null);
     }
 
@@ -751,6 +839,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     const safePresets = Array.isArray(presets) ? presets : [];
     trackModal.seedInput.value = String(currentSeedValue ?? "");
     trackModal.presetGrid.innerHTML = "";
+
     for (let i = 0; i < safePresets.length; i += 1) {
       const preset = safePresets[i];
       const button = buildTrackPresetButton(preset, trackModal.seedInput.value);
@@ -779,13 +868,18 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   }
 
   trackModal.applyBtn?.addEventListener("click", () => {
+    const presetButton = trackModal.presetGrid?.querySelector(".track-preset-btn.active");
     closeModal({
       action: "applySeed",
-      seed: trackModal.seedInput?.value || ""
+      seed: trackModal.seedInput?.value || "",
+      presetName: presetButton?.dataset?.presetName || null
     });
   });
   trackModal.randomBtn?.addEventListener("click", () => {
     closeModal({ action: "random" });
+  });
+  trackModal.drawBtn?.addEventListener("click", () => {
+    closeModal({ action: "drawShape" });
   });
   trackModal.closeBtn?.addEventListener("click", () => closeModal(null));
   trackModal.backdrop?.addEventListener("click", () => closeModal(null));
@@ -794,8 +888,20 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
       event.preventDefault();
       closeModal({
         action: "applySeed",
-        seed: trackModal.seedInput?.value || ""
+        seed: trackModal.seedInput?.value || "",
+        presetName: null
       });
+    }
+  });
+  trackModal.seedInput?.addEventListener("input", () => {
+    const presetButtons = trackModal.presetGrid?.querySelectorAll(".track-preset-btn");
+    if (!presetButtons) {
+      return;
+    }
+
+    for (let i = 0; i < presetButtons.length; i += 1) {
+      const button = presetButtons[i];
+      button.classList.toggle("active", button.dataset.seed === trackModal.seedInput.value);
     }
   });
 
@@ -997,6 +1103,121 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     });
   }
 
+  function sanitizeSettingsInput(input) {
+    const allowedPatterns = new Set(["diagonal", "grid", "dots", "solid"]);
+    return {
+      worldWidth: Math.round(clamp(Number(input?.worldWidth) || settings.worldWidth || 900, 480, 1600)),
+      worldHeight: Math.round(clamp(Number(input?.worldHeight) || settings.worldHeight || 600, 320, 1200)),
+      trackWidth: Math.round(clamp(Number(input?.trackWidth) || settings.trackWidth || 112, 80, 150)),
+      trackColor: sanitizeColor(input?.trackColor, settings.trackColor || "#576f57"),
+      canvasBgColor: sanitizeColor(input?.canvasBgColor, settings.canvasBgColor || "#1b2b2f"),
+      canvasPattern: allowedPatterns.has(input?.canvasPattern) ? input.canvasPattern : "diagonal",
+      uiTheme: input?.uiTheme === "dark" ? "dark" : "light"
+    };
+  }
+
+  function fillSettingsForm(nextSettings) {
+    settings = sanitizeSettingsInput(nextSettings || settings);
+
+    settingsModal.widthInput.value = String(settings.worldWidth);
+    settingsModal.heightInput.value = String(settings.worldHeight);
+    settingsModal.trackWidthInput.value = String(settings.trackWidth);
+    settingsModal.trackWidthOutput.textContent = String(settings.trackWidth);
+    settingsModal.trackColorInput.value = settings.trackColor;
+    settingsModal.canvasBgInput.value = settings.canvasBgColor;
+    settingsModal.canvasPatternSelect.value = settings.canvasPattern;
+    settingsModal.uiThemeSelect.value = settings.uiTheme;
+    applyTheme(settings.uiTheme);
+  }
+
+  function collectSettingsForm() {
+    return sanitizeSettingsInput({
+      worldWidth: settingsModal.widthInput.value,
+      worldHeight: settingsModal.heightInput.value,
+      trackWidth: settingsModal.trackWidthInput.value,
+      trackColor: settingsModal.trackColorInput.value,
+      canvasBgColor: settingsModal.canvasBgInput.value,
+      canvasPattern: settingsModal.canvasPatternSelect.value,
+      uiTheme: settingsModal.uiThemeSelect.value
+    });
+  }
+
+  function openSettingsModal(currentSettings) {
+    clearDanglingModalState();
+
+    if (
+      !hasModalElements(settingsModal, [
+        "root",
+        "dialog",
+        "widthInput",
+        "heightInput",
+        "trackWidthInput",
+        "trackColorInput",
+        "canvasBgInput",
+        "canvasPatternSelect",
+        "uiThemeSelect",
+        "cancelBtn",
+        "applyBtn"
+      ])
+    ) {
+      return Promise.resolve(null);
+    }
+
+    if (modalOpen) {
+      if (activeModal === "settings") {
+        return Promise.resolve(null);
+      }
+      closeModal(false);
+    }
+
+    fillSettingsForm(currentSettings || settings);
+    if (settingsModal.helpPop) {
+      settingsModal.helpPop.hidden = true;
+    }
+
+    modalOpen = true;
+    activeModal = "settings";
+    previousFocused = document.activeElement;
+    settingsModal.root.hidden = false;
+
+    return new Promise((resolve) => {
+      modalResolver = resolve;
+      requestAnimationFrame(() => {
+        settingsModal.widthInput.focus();
+        settingsModal.widthInput.select();
+      });
+    });
+  }
+
+  function submitSettingsModal() {
+    closeModal(collectSettingsForm());
+  }
+
+  settingsModal.trackWidthInput?.addEventListener("input", () => {
+    settingsModal.trackWidthOutput.textContent = String(Math.round(Number(settingsModal.trackWidthInput.value) || 0));
+  });
+  settingsModal.helpBtn?.addEventListener("click", () => {
+    if (!settingsModal.helpPop) {
+      return;
+    }
+    settingsModal.helpPop.hidden = !settingsModal.helpPop.hidden;
+  });
+  settingsModal.cancelBtn?.addEventListener("click", () => closeModal(null));
+  settingsModal.applyBtn?.addEventListener("click", submitSettingsModal);
+  settingsModal.backdrop?.addEventListener("click", () => closeModal(null));
+  settingsModal.dialog?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      const targetTag = event.target?.tagName || "";
+      if (targetTag === "SELECT" || targetTag === "TEXTAREA") {
+        return;
+      }
+      event.preventDefault();
+      submitSettingsModal();
+    }
+  });
+
+  applyTheme(settings.uiTheme);
+
   elements.seedInput.value = String(initialSeed);
 
   elements.startPauseBtn.addEventListener("click", () => handlers.onStartPause());
@@ -1006,6 +1227,10 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   elements.newRacerBtn.addEventListener("click", () => handlers.onRequestNewRacer());
   elements.changeCarBtn.addEventListener("click", () => handlers.onRequestCarPicker());
   elements.saveRacerBtn.addEventListener("click", () => handlers.onRequestSaveRacer());
+  elements.settingsBtn?.addEventListener("click", () => handlers.onRequestSettings());
+  elements.shareBtn?.addEventListener("click", () => handlers.onRequestShare());
+  elements.drawTrackFinishBtn?.addEventListener("click", () => handlers.onFinishDrawTrack());
+  elements.drawTrackCancelBtn?.addEventListener("click", () => handlers.onCancelDrawTrack());
 
   elements.resetDefaultsBtn.addEventListener("click", () => {
     setHyperparams(DEFAULT_HYPERPARAMS, true);
@@ -1049,6 +1274,13 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     getHyperparams,
     setHyperparams,
     setTeamName,
+    getSettings() {
+      return { ...settings };
+    },
+    setSettings(nextSettings) {
+      const next = sanitizeSettingsInput(nextSettings || settings);
+      fillSettingsForm(next);
+    },
     getSeedInput() {
       return elements.seedInput.value;
     },
@@ -1069,7 +1301,10 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
     promptSaveRacerName,
     promptEditRacer,
     openTrackPicker,
+    openSettingsModal,
     openCarPicker,
+    setDrawMode,
+    applyTheme,
     isModalOpen() {
       clearDanglingModalState();
       return modalOpen;

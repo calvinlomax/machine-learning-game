@@ -18,14 +18,26 @@
 
       <section class="surface canvas-surface" aria-label="Simulation">
         <div class="team-panel canvas-team-panel">
-          <div class="team-panel-head">
-            <span>Team Name</span>
+          <div class="team-panel-inline">
+            <span class="team-panel-label">Team Name</span>
+            <button id="team-name-display" type="button" class="team-name-btn">ML1 Academy</button>
+            <input
+              id="team-name-input"
+              class="team-name-input"
+              type="text"
+              maxlength="48"
+              autocomplete="off"
+              hidden
+            />
           </div>
-          <button id="team-name-display" type="button" class="team-name-btn">ML1 Academy</button>
-          <input id="team-name-input" class="team-name-input" type="text" maxlength="48" autocomplete="off" hidden />
         </div>
         <div class="canvas-frame">
           <canvas id="game-canvas" width="900" height="600" aria-label="Racing simulation canvas"></canvas>
+        </div>
+        <div id="draw-track-panel" class="draw-track-panel" hidden>
+          <span id="draw-track-status">Draw mode: drag on canvas to sketch a closed track.</span>
+          <button id="draw-track-finish-btn" type="button" class="primary">Finish shape</button>
+          <button id="draw-track-cancel-btn" type="button">Cancel</button>
         </div>
         <div class="hud" aria-live="polite">
           <div class="lap-summary">
@@ -72,6 +84,10 @@
           <button id="change-car-btn">Change car</button>
           <button id="save-racer-btn" class="primary">save racer</button>
         </div>
+        <div class="button-row">
+          <button id="settings-btn">Settings</button>
+          <button id="share-btn" class="primary">Share</button>
+        </div>
 
         <div class="toggle-row">
           <label><input id="toggle-sensors" type="checkbox" checked /> Show ray sensors</label>
@@ -116,9 +132,12 @@
     <div id="track-modal-root" class="modal-root" hidden>
       <div class="modal-backdrop"></div>
       <div class="modal track-modal" role="dialog" aria-modal="true" aria-labelledby="track-modal-title" tabindex="-1">
-        <h2 id="track-modal-title">New Track</h2>
-        <p>Select a preset, enter a seed, or create a random track.</p>
+        <h2 id="track-modal-title">Add Track</h2>
+        <p>Select a preset, draw a shape, enter a seed, or create a random track.</p>
         <div id="track-preset-grid" class="track-preset-grid"></div>
+        <div class="track-shape-row">
+          <button id="draw-track-btn" type="button">Draw shape</button>
+        </div>
         <div class="field-stack">
           <label for="seed-input">Track seed</label>
           <input id="seed-input" type="text" inputmode="numeric" maxlength="9" autocomplete="off" />
@@ -129,6 +148,60 @@
         </div>
         <div class="modal-actions">
           <button id="track-modal-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="settings-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" tabindex="-1">
+        <div class="settings-modal-head">
+          <h2 id="settings-modal-title">Settings</h2>
+          <button id="settings-help-btn" class="help-btn" type="button" aria-label="Settings help">&#x1F6C8;</button>
+        </div>
+        <div id="settings-help-pop" class="settings-help-pop" hidden>
+          <p>Track size changes both world size and canvas dimensions.</p>
+          <p>Track width/color affect the generated road appearance.</p>
+          <p>Canvas background controls base color and pattern.</p>
+          <p>UI style switches between light and dark themes.</p>
+        </div>
+
+        <div class="settings-grid">
+          <label for="settings-world-width">Track width (px)</label>
+          <input id="settings-world-width" type="number" min="480" max="1600" step="10" />
+
+          <label for="settings-world-height">Track height (px)</label>
+          <input id="settings-world-height" type="number" min="320" max="1200" step="10" />
+
+          <label for="settings-track-width">Road width</label>
+          <div class="range-with-value">
+            <input id="settings-track-width" type="range" min="80" max="150" step="1" />
+            <output id="settings-track-width-value"></output>
+          </div>
+
+          <label for="settings-track-color">Track color</label>
+          <input id="settings-track-color" type="color" />
+
+          <label for="settings-canvas-bg">Canvas background</label>
+          <input id="settings-canvas-bg" type="color" />
+
+          <label for="settings-canvas-pattern">Canvas pattern</label>
+          <select id="settings-canvas-pattern">
+            <option value="diagonal">Diagonal</option>
+            <option value="grid">Grid</option>
+            <option value="dots">Dots</option>
+            <option value="solid">Solid</option>
+          </select>
+
+          <label for="settings-ui-theme">UI style</label>
+          <select id="settings-ui-theme">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button id="settings-cancel-btn" type="button">Cancel</button>
+          <button id="settings-apply-btn" type="button" class="primary">Apply</button>
         </div>
       </div>
     </div>
@@ -153,6 +226,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=track-presets-20260226"></script>
+    <script type="module" src="./src/main.js?v=settings-share-20260226"></script>
   </body>
 </html>

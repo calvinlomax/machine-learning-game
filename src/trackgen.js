@@ -4,6 +4,7 @@ const TAU = Math.PI * 2;
 const EDGE_MARGIN = 86;
 const DEFAULT_TRACK_WIDTH = 112;
 const DEFAULT_SAMPLES = 300;
+const MIN_SHAPE_POINT_DISTANCE = 6;
 
 export const WORLD_WIDTH = 900;
 export const WORLD_HEIGHT = 600;
@@ -123,17 +124,57 @@ function createControlPoints(rng, worldWidth, worldHeight) {
   return points;
 }
 
-export function generateTrack(seed, options = {}) {
-  const parsedSeed = normalizeSeed(seed);
-  const rng = new RNG(parsedSeed);
+function sanitizeShapePoints(shapePoints, worldWidth, worldHeight) {
+  if (!Array.isArray(shapePoints)) {
+    return [];
+  }
 
-  const worldWidth = options.worldWidth || WORLD_WIDTH;
-  const worldHeight = options.worldHeight || WORLD_HEIGHT;
-  const width = clamp(options.trackWidth || DEFAULT_TRACK_WIDTH, 80, 150);
-  const samples = Math.max(120, Math.floor(options.samples || DEFAULT_SAMPLES));
+  const sanitized = [];
+  for (let i = 0; i < shapePoints.length; i += 1) {
+    const raw = shapePoints[i];
+    if (!raw || !Number.isFinite(raw.x) || !Number.isFinite(raw.y)) {
+      continue;
+    }
 
-  const controlPoints = createControlPoints(rng, worldWidth, worldHeight);
-  const centerline = sampleClosedCurve(controlPoints, samples);
+    const nextPoint = {
+      x: clamp(raw.x, EDGE_MARGIN, worldWidth - EDGE_MARGIN),
+      y: clamp(raw.y, EDGE_MARGIN, worldHeight - EDGE_MARGIN)
+    };
+
+    if (!sanitized.length) {
+      sanitized.push(nextPoint);
+      continue;
+    }
+
+    const prev = sanitized[sanitized.length - 1];
+    if (Math.hypot(nextPoint.x - prev.x, nextPoint.y - prev.y) >= MIN_SHAPE_POINT_DISTANCE) {
+      sanitized.push(nextPoint);
+    }
+  }
+
+  if (sanitized.length > 1) {
+    const first = sanitized[0];
+    const last = sanitized[sanitized.length - 1];
+    if (Math.hypot(first.x - last.x, first.y - last.y) < MIN_SHAPE_POINT_DISTANCE) {
+      sanitized.pop();
+    }
+  }
+
+  if (sanitized.length <= 40) {
+    return sanitized;
+  }
+
+  const maxPoints = 40;
+  const reduced = [];
+  for (let i = 0; i < maxPoints; i += 1) {
+    const t = i / maxPoints;
+    const index = Math.floor(t * sanitized.length) % sanitized.length;
+    reduced.push(sanitized[index]);
+  }
+  return reduced;
+}
+
+function buildTrackGeometry(centerline, { seed, worldWidth, worldHeight, width }) {
   const normals = computeNormals(centerline);
 
   const halfWidth = width * 0.5;
@@ -159,7 +200,7 @@ export function generateTrack(seed, options = {}) {
   const startIndex = findStartIndex(centerline);
 
   return {
-    seed: parsedSeed,
+    seed,
     worldWidth,
     worldHeight,
     width,
@@ -176,6 +217,51 @@ export function generateTrack(seed, options = {}) {
       b: rightBoundary[startIndex]
     }
   };
+}
+
+export function generateTrack(seed, options = {}) {
+  const parsedSeed = normalizeSeed(seed);
+  const rng = new RNG(parsedSeed);
+
+  const worldWidth = options.worldWidth || WORLD_WIDTH;
+  const worldHeight = options.worldHeight || WORLD_HEIGHT;
+  const width = clamp(options.trackWidth || DEFAULT_TRACK_WIDTH, 80, 150);
+  const samples = Math.max(120, Math.floor(options.samples || DEFAULT_SAMPLES));
+
+  const controlPoints = createControlPoints(rng, worldWidth, worldHeight);
+  const centerline = sampleClosedCurve(controlPoints, samples);
+  return buildTrackGeometry(centerline, {
+    seed: parsedSeed,
+    worldWidth,
+    worldHeight,
+    width
+  });
+}
+
+export function generateTrackFromShape(shapePoints, options = {}) {
+  const parsedSeed = normalizeSeed(options.seed ?? 1);
+  const worldWidth = options.worldWidth || WORLD_WIDTH;
+  const worldHeight = options.worldHeight || WORLD_HEIGHT;
+  const width = clamp(options.trackWidth || DEFAULT_TRACK_WIDTH, 80, 150);
+  const samples = Math.max(120, Math.floor(options.samples || DEFAULT_SAMPLES));
+
+  const controlPoints = sanitizeShapePoints(shapePoints, worldWidth, worldHeight);
+  if (controlPoints.length < 4) {
+    return generateTrack(parsedSeed, {
+      worldWidth,
+      worldHeight,
+      trackWidth: width,
+      samples
+    });
+  }
+
+  const centerline = sampleClosedCurve(controlPoints, samples);
+  return buildTrackGeometry(centerline, {
+    seed: parsedSeed,
+    worldWidth,
+    worldHeight,
+    width
+  });
 }
 
 export function wrappedProgressDelta(previous, current) {

@@ -2,7 +2,8 @@ const KEYS = {
   bestReturn: "ml-racer-best-return-v1",
   hyperparams: "ml-racer-hyperparams-v1",
   savedRacers: "ml-racer-saved-racers-v1",
-  teamName: "ml-racer-team-name-v1"
+  teamName: "ml-racer-team-name-v1",
+  appSettings: "ml-racer-app-settings-v1"
 };
 
 function getStorage() {
@@ -133,4 +134,33 @@ export function saveTeamName(name) {
   }
 
   storage.setItem(KEYS.teamName, value);
+}
+
+export function loadAppSettings() {
+  const storage = getStorage();
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(KEYS.appSettings);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveAppSettings(settings) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  const safe = settings && typeof settings === "object" ? settings : {};
+  storage.setItem(KEYS.appSettings, JSON.stringify(safe));
 }
