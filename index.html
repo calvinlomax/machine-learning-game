@@ -22,21 +22,15 @@
 
       <section class="surface canvas-surface" aria-label="Simulation">
         <div class="canvas-frame">
-          <div class="canvas-lap-counter" aria-live="polite">
-            <div class="canvas-lap-row">
-              <span>Laps</span>
-              <strong id="stat-canvas-lap-current">0</strong>
-            </div>
-            <div class="canvas-lap-row">
-              <span>Best</span>
-              <strong id="stat-canvas-lap-best">0</strong>
-            </div>
-          </div>
           <canvas id="game-canvas" width="900" height="600" aria-label="Racing simulation canvas"></canvas>
         </div>
         <div class="hud" aria-live="polite">
           <div class="lap-summary">
-            <div class="lap-metric"><span>This Lap:</span><strong id="stat-lap-current">00:00:00</strong></div>
+            <div class="lap-metric"><span>Worst Lap:</span><strong id="stat-lap-worst">00:00:00</strong></div>
+            <div class="lap-metric lap-count-metric">
+              <div class="lap-count-row"><span>Laps:</span><strong id="stat-lap-count-current">0</strong></div>
+              <div class="lap-count-row"><span>Best Laps:</span><strong id="stat-lap-count-best">0</strong></div>
+            </div>
             <div class="lap-metric"><span>Best Lap:</span><strong id="stat-lap-best">00:00:00</strong></div>
           </div>
           <div class="hud-grid">

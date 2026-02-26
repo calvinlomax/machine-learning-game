@@ -229,10 +229,6 @@ ui.setHandlers({
     handleNewRacerRequest();
   },
   onRequestCarPicker: () => {
-    if (ui.isModalOpen()) {
-      return;
-    }
-
     handleCarPickerRequest();
   },
   onApplySeed: (seedText) => {
@@ -275,6 +271,7 @@ function renderFrame() {
     bestReturn: bestEpisodeReturn,
     thisLapTimeSec: renderState.thisLapTimeSec,
     bestLapTimeSec: renderState.bestLapTimeSec,
+    worstLapTimeSec: renderState.worstLapTimeSec,
     currentLapCount: renderState.currentLapCount,
     bestLapCount: renderState.bestLapCount,
     epsilon: agent.epsilon,

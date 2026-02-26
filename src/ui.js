@@ -218,9 +218,9 @@ export function createUI({ initialHyperparams, initialSeed }) {
   };
 
   const stats = {
-    canvasLapCurrent: document.getElementById("stat-canvas-lap-current"),
-    canvasLapBest: document.getElementById("stat-canvas-lap-best"),
-    lapCurrent: document.getElementById("stat-lap-current"),
+    lapCountCurrent: document.getElementById("stat-lap-count-current"),
+    lapCountBest: document.getElementById("stat-lap-count-best"),
+    lapWorst: document.getElementById("stat-lap-worst"),
     lapBest: document.getElementById("stat-lap-best"),
     episode: document.getElementById("stat-episode"),
     step: document.getElementById("stat-step"),
@@ -360,9 +360,9 @@ export function createUI({ initialHyperparams, initialSeed }) {
   }
 
   function updateStats(nextStats) {
-    stats.canvasLapCurrent.textContent = String(Math.max(0, Math.floor(nextStats.currentLapCount ?? 0)));
-    stats.canvasLapBest.textContent = String(Math.max(0, Math.floor(nextStats.bestLapCount ?? 0)));
-    stats.lapCurrent.textContent = formatLapTime(nextStats.thisLapTimeSec ?? 0);
+    stats.lapCountCurrent.textContent = String(Math.max(0, Math.floor(nextStats.currentLapCount ?? 0)));
+    stats.lapCountBest.textContent = String(Math.max(0, Math.floor(nextStats.bestLapCount ?? 0)));
+    stats.lapWorst.textContent = formatLapTime(nextStats.worstLapTimeSec ?? 0);
     stats.lapBest.textContent = formatLapTime(nextStats.bestLapTimeSec ?? 0);
 
     stats.episode.textContent = String(nextStats.episode ?? 1);
@@ -519,7 +519,10 @@ export function createUI({ initialHyperparams, initialSeed }) {
 
   function openCarPicker(cars, currentCarId) {
     if (modalOpen) {
-      return Promise.resolve(null);
+      if (activeModal === "car") {
+        return Promise.resolve(null);
+      }
+      closeModal(false);
     }
 
     carModal.optionGrid.innerHTML = "";

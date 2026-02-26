@@ -95,6 +95,7 @@ export class RacingEnv {
   clearLapHistory(options = {}) {
     const resetBestLapCount = Boolean(options.resetBestLapCount);
     this.bestLapTimeSec = null;
+    this.worstLapTimeSec = null;
     this.lastLapTimeSec = null;
     this.currentLapCount = 0;
     if (resetBestLapCount) {
@@ -291,6 +292,9 @@ export class RacingEnv {
       if (this.bestLapTimeSec === null || this.lapElapsedSec < this.bestLapTimeSec) {
         this.bestLapTimeSec = this.lapElapsedSec;
       }
+      if (this.worstLapTimeSec === null || this.lapElapsedSec > this.worstLapTimeSec) {
+        this.worstLapTimeSec = this.lapElapsedSec;
+      }
       this.currentLapCount += 1;
       if (this.currentLapCount > this.bestLapCount) {
         this.bestLapCount = this.currentLapCount;
@@ -345,6 +349,7 @@ export class RacingEnv {
       lapProgress: this.lapProgress || 0,
       thisLapTimeSec: this.lapElapsedSec || 0,
       bestLapTimeSec: this.bestLapTimeSec,
+      worstLapTimeSec: this.worstLapTimeSec,
       currentLapCount: this.currentLapCount || 0,
       bestLapCount: this.bestLapCount || 0
     };

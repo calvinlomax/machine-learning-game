@@ -1,5 +1,12 @@
 export const CAR_PRESETS = [
   {
+    id: "graphite-00",
+    alias: "Graphite 00",
+    primary: "#6E737A",
+    secondary: "#121212",
+    accent: "#C9CDD2"
+  },
+  {
     id: "nebula-01",
     alias: "Nebula 01",
     primary: "#1E41FF",
@@ -71,4 +78,4 @@ export const CAR_PRESETS = [
   }
 ];
 
-export const DEFAULT_CAR_ID = CAR_PRESETS[0].id;
+export const DEFAULT_CAR_ID = "graphite-00";
