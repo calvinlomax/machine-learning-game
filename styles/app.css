@@ -157,24 +157,50 @@ input:focus-visible {
 }
 
 .hud {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  padding: 0.45rem;
+  margin-top: 0.6rem;
+  padding: 0;
+}
+
+.lap-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+.lap-metric {
+  background: rgba(8, 15, 17, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 0.5rem;
+  color: #f3f7f7;
+  padding: 0.38rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.75rem;
+}
+
+.lap-metric span {
+  color: rgba(225, 236, 237, 0.86);
+}
+
+.lap-metric strong {
+  font-size: 0.86rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .hud-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.3rem;
+  gap: 0.4rem;
 }
 
 .hud-item {
-  background: rgba(8, 15, 17, 0.68);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 15, 17, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.45rem;
   color: #f5f9f9;
-  padding: 0.22rem 0.34rem;
+  padding: 0.28rem 0.4rem;
   display: flex;
   justify-content: space-between;
   align-items: baseline;

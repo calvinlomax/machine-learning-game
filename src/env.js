@@ -2,7 +2,7 @@ import { ACTIONS, CAR_CONFIG, createCarState, stepCar } from "./physics.js";
 import { projectToCenterline, wrappedProgressDelta } from "./trackgen.js";
 
 const DEFAULT_SENSOR_ANGLES = [-0.95, -0.6, -0.3, 0, 0.3, 0.6, 0.95];
-const DEFAULT_MAX_SENSOR_DISTANCE = 250;
+const DEFAULT_MAX_SENSOR_DISTANCE = 360;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -82,12 +82,20 @@ export class RacingEnv {
     this.prevProjection = null;
     this.currentObservation = new Float32Array(0);
 
+    this.clearLapHistory();
     this.resetEpisode(true);
   }
 
   setTrack(track) {
     this.track = track;
+    this.clearLapHistory();
     return this.resetEpisode(true);
+  }
+
+  clearLapHistory() {
+    this.bestLapTimeSec = null;
+    this.lastLapTimeSec = null;
+    this.completedLaps = 0;
   }
 
   updateConfig({ maxEpisodeSteps, actionSmoothing, rewardWeights }) {
@@ -129,14 +137,14 @@ export class RacingEnv {
       x: p1.x,
       y: p1.y,
       heading,
-      speed: 22
+      speed: 48
     };
   }
 
   resetEpisode(withNoise = true) {
     const spawn = this.getSpawnPose();
     const headingJitter = withNoise ? this.randomRange(-0.08, 0.08) : 0;
-    const speedJitter = withNoise ? this.randomRange(-6, 6) : 0;
+    const speedJitter = withNoise ? this.randomRange(-10, 10) : 0;
 
     this.car = createCarState(
       spawn.x,
@@ -150,6 +158,8 @@ export class RacingEnv {
     this.lastProgressDelta = 0;
     this.episodeReturn = 0;
     this.done = false;
+    this.lapProgress = 0;
+    this.lapElapsedSec = 0;
 
     this.trajectory = [{ x: this.car.x, y: this.car.y }];
 
@@ -267,6 +277,19 @@ export class RacingEnv {
     let progressDelta = wrappedProgressDelta(this.prevProjection.progress, projection.progress);
     progressDelta = clamp(progressDelta, -0.04, 0.04);
     this.lastProgressDelta = progressDelta;
+    this.lapElapsedSec += this.dt;
+
+    let nextLapProgress = Math.max(0, this.lapProgress + progressDelta);
+    while (nextLapProgress >= 1) {
+      nextLapProgress -= 1;
+      this.lastLapTimeSec = this.lapElapsedSec;
+      if (this.bestLapTimeSec === null || this.lapElapsedSec < this.bestLapTimeSec) {
+        this.bestLapTimeSec = this.lapElapsedSec;
+      }
+      this.completedLaps += 1;
+      this.lapElapsedSec = 0;
+    }
+    this.lapProgress = nextLapProgress;
 
     const speedNorm = clamp(this.car.speed / CAR_CONFIG.maxSpeed, 0, 1);
     const progressReward = this.rewardWeights.progressWeight * progressDelta * 120;
@@ -310,7 +333,10 @@ export class RacingEnv {
       car: this.car,
       trail: this.trajectory,
       sensorHits: this.lastSensorHits,
-      progress: this.prevProjection?.progress || 0
+      progress: this.prevProjection?.progress || 0,
+      lapProgress: this.lapProgress || 0,
+      thisLapTimeSec: this.lapElapsedSec || 0,
+      bestLapTimeSec: this.bestLapTimeSec
     };
   }
 }

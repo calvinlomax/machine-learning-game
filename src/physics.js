@@ -11,11 +11,11 @@ export const ACTIONS = [
 ];
 
 export const CAR_CONFIG = {
-  maxSpeed: 170,
-  accel: 145,
-  brake: 210,
-  drag: 1.75,
-  turnRate: 2.9
+  maxSpeed: 340,
+  accel: 300,
+  brake: 360,
+  drag: 1.1,
+  turnRate: 3.1
 };
 
 function clamp(value, min, max) {

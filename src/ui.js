@@ -20,6 +20,17 @@ function formatNumber(value, decimals = 3) {
   return Number(value).toFixed(decimals);
 }
 
+function formatLapTime(secondsValue) {
+  const totalSeconds = Math.max(0, Number.isFinite(secondsValue) ? secondsValue : 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  const centiseconds = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 100);
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:${String(
+    centiseconds
+  ).padStart(2, "0")}`;
+}
+
 const PARAM_DEFS = [
   {
     id: "learningRate",
@@ -206,6 +217,8 @@ export function createUI({ initialHyperparams, initialSeed }) {
   };
 
   const stats = {
+    lapCurrent: document.getElementById("stat-lap-current"),
+    lapBest: document.getElementById("stat-lap-best"),
     episode: document.getElementById("stat-episode"),
     step: document.getElementById("stat-step"),
     totalTrain: document.getElementById("stat-total-train"),
@@ -335,6 +348,9 @@ export function createUI({ initialHyperparams, initialSeed }) {
   }
 
   function updateStats(nextStats) {
+    stats.lapCurrent.textContent = formatLapTime(nextStats.thisLapTimeSec ?? 0);
+    stats.lapBest.textContent = formatLapTime(nextStats.bestLapTimeSec ?? 0);
+
     stats.episode.textContent = String(nextStats.episode ?? 1);
     stats.step.textContent = String(nextStats.step ?? 0);
     stats.totalTrain.textContent = String(nextStats.totalTrainingSteps ?? 0);

@@ -172,6 +172,7 @@ async function handleNewRacerRequest() {
 
   agent.resetModel();
   clearBestReturn();
+  env.clearLapHistory();
   bestEpisodeReturn = Number.NEGATIVE_INFINITY;
   episodeNumber = 1;
   observation = env.resetEpisode(true);
@@ -245,10 +246,12 @@ function renderFrame() {
     episode: episodeNumber,
     step: env.stepCount,
     totalTrainingSteps: agent.trainingStepCount,
-    progress: renderState.progress,
+    progress: renderState.lapProgress,
     reward: env.lastReward,
     episodeReturn: env.episodeReturn,
     bestReturn: bestEpisodeReturn,
+    thisLapTimeSec: renderState.thisLapTimeSec,
+    bestLapTimeSec: renderState.bestLapTimeSec,
     epsilon: agent.epsilon,
     learningRate: hyperparams.learningRate,
     gamma: hyperparams.gamma,
