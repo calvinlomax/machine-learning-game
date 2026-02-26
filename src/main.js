@@ -12,13 +12,16 @@ import {
   loadBestReturn,
   loadHyperparams,
   loadSavedRacers,
+  loadTeamName,
   saveBestReturn,
   saveHyperparams,
-  saveSavedRacers
+  saveSavedRacers,
+  saveTeamName
 } from "./storage.js";
 
 const BASE_URL = import.meta.env?.BASE_URL ?? "/";
-document.getElementById("base-url-readout").textContent = BASE_URL;
+const DEFAULT_TEAM_NAME = "ML1 Academy";
+document.documentElement.dataset.baseUrl = BASE_URL;
 
 const canvas = document.getElementById("game-canvas");
 const renderer = createRenderer(canvas, {
@@ -36,6 +39,8 @@ let bestEpisodeReturn = loadBestReturn();
 if (!Number.isFinite(bestEpisodeReturn)) {
   bestEpisodeReturn = Number.NEGATIVE_INFINITY;
 }
+
+let teamName = loadTeamName() || DEFAULT_TEAM_NAME;
 
 let currentSeed = randomSeed();
 const envRng = new RNG(currentSeed ^ 0x9e3779b9);
@@ -70,7 +75,9 @@ const agent = new DQNAgent({
 
 const ui = createUI({
   initialHyperparams: hyperparams,
-  initialSeed: currentSeed
+  initialSeed: currentSeed,
+  initialTeamName: teamName,
+  baseUrl: BASE_URL
 });
 
 let running = false;
@@ -194,7 +201,9 @@ function applyHyperparams(nextHyperparams) {
 }
 
 function replaceTrack(seed) {
-  const parsedSeed = normalizeSeed(seed);
+  const seedString = String(seed ?? "");
+  const normalizedSeedString = seedString.length > 9 ? seedString.slice(0, 9) : seedString;
+  const parsedSeed = normalizeSeed(normalizedSeedString);
   currentSeed = parsedSeed;
   ui.setSeedInput(parsedSeed);
 
@@ -492,6 +501,10 @@ ui.setHandlers({
 
     handleEditSavedRacer(racerId);
   },
+  onTeamNameChange: (nextTeamName) => {
+    teamName = String(nextTeamName || "").trim() || DEFAULT_TEAM_NAME;
+    saveTeamName(teamName);
+  },
   onApplySeed: (seedText) => {
     if (ui.isModalOpen()) {
       return;
@@ -505,8 +518,10 @@ ui.setHandlers({
 });
 
 ui.setHyperparams(hyperparams, false);
+ui.setTeamName(teamName, false);
 ui.setRunning(running);
 saveHyperparams(hyperparams);
+saveTeamName(teamName);
 persistSavedRacers(savedRacers);
 
 function renderFrame() {

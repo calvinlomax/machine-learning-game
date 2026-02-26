@@ -10,17 +10,41 @@
     <main class="app-shell">
       <header class="hero">
         <div>
-          <h2 class="kicker">ML Racer</h2>
-          <h1>Move the sliders below to create the best racer!</h1>
-          <p class="kicker">Tip: let the racer learn for a while before making any changes, you might be surprised!</p>
+          <h2 class="kicker">Created by Calvin Lomax</h2>
+          <h1>ML1 Grand Prix - Train, Build, and Test Your Racing Team with AI</h1>
+          <p class="kicker">Coach your driver by adjusting the sliders below, save them to build your team!</p>
         </div>
-        <div class="base-readout">
-          <span>Base path</span>
-          <code id="base-url-readout">/</code>
+        <div class="team-panel">
+          <div class="team-panel-head">
+            <span>Team Name</span>
+            <button
+              type="button"
+              class="help-btn"
+              data-help-section="team"
+              aria-label="Team section help"
+              title="Team section help"
+            >
+              🛈
+            </button>
+          </div>
+          <button id="team-name-display" type="button" class="team-name-btn">ML1 Academy</button>
+          <input id="team-name-input" class="team-name-input" type="text" maxlength="48" autocomplete="off" hidden />
         </div>
       </header>
 
       <section class="surface canvas-surface" aria-label="Simulation">
+        <div class="section-head">
+          <h2>Viewer</h2>
+          <button
+            type="button"
+            class="help-btn"
+            data-help-section="viewer"
+            aria-label="Viewer section help"
+            title="Viewer section help"
+          >
+            🛈
+          </button>
+        </div>
         <div class="canvas-frame">
           <canvas id="game-canvas" width="900" height="600" aria-label="Racing simulation canvas"></canvas>
         </div>
@@ -48,14 +72,36 @@
             <div class="hud-item"><span>Step ms</span><strong id="stat-step-ms">0.00</strong></div>
           </div>
           <section class="saved-racers" aria-label="Saved racers">
-            <h3>Saved Racers</h3>
+            <div class="saved-racers-head">
+              <h3>Saved Racers</h3>
+              <button
+                type="button"
+                class="help-btn"
+                data-help-section="saved-racers"
+                aria-label="Saved racers help"
+                title="Saved racers help"
+              >
+                🛈
+              </button>
+            </div>
             <div id="saved-racer-list" class="saved-racer-list"></div>
           </section>
         </div>
       </section>
 
       <section class="surface controls" aria-label="Controls">
-        <h2>Controls</h2>
+        <div class="section-head">
+          <h2>Controls</h2>
+          <button
+            type="button"
+            class="help-btn"
+            data-help-section="controls"
+            aria-label="Controls section help"
+            title="Controls section help"
+          >
+            🛈
+          </button>
+        </div>
         <div class="button-row">
           <button id="start-pause-btn" class="primary">Start</button>
           <button id="step-btn">Step</button>
@@ -72,7 +118,7 @@
 
         <div class="seed-row">
           <label for="seed-input">Track seed</label>
-          <input id="seed-input" type="text" inputmode="numeric" autocomplete="off" />
+          <input id="seed-input" type="text" inputmode="numeric" maxlength="9" autocomplete="off" />
           <button id="apply-seed-btn">Apply seed</button>
         </div>
 
@@ -84,7 +130,18 @@
 
       <section class="surface training" aria-label="Training settings">
         <div class="training-head">
-          <h2>Training</h2>
+          <div class="section-head-inline">
+            <h2>Training</h2>
+            <button
+              type="button"
+              class="help-btn"
+              data-help-section="training"
+              aria-label="Training section help"
+              title="Training section help"
+            >
+              🛈
+            </button>
+          </div>
           <button id="reset-defaults-btn">Reset Defaults</button>
         </div>
         <p class="training-note">Epsilon decay is applied once at the end of each episode.</p>
@@ -132,6 +189,17 @@
         <div class="modal-actions">
           <button id="racer-modal-cancel-btn">Cancel</button>
           <button id="racer-modal-save-btn" class="primary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="help-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal help-modal" role="dialog" aria-modal="true" aria-labelledby="help-modal-title" tabindex="-1">
+        <h2 id="help-modal-title">Section Help</h2>
+        <div id="help-modal-body" class="help-modal-body"></div>
+        <div class="modal-actions">
+          <button id="help-modal-close-btn" class="primary">Close</button>
         </div>
       </div>
     </div>

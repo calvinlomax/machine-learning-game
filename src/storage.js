@@ -1,7 +1,8 @@
 const KEYS = {
   bestReturn: "ml-racer-best-return-v1",
   hyperparams: "ml-racer-hyperparams-v1",
-  savedRacers: "ml-racer-saved-racers-v1"
+  savedRacers: "ml-racer-saved-racers-v1",
+  teamName: "ml-racer-team-name-v1"
 };
 
 function getStorage() {
@@ -103,4 +104,33 @@ export function saveSavedRacers(savedRacers) {
 
   const safeList = Array.isArray(savedRacers) ? savedRacers : [];
   storage.setItem(KEYS.savedRacers, JSON.stringify(safeList));
+}
+
+export function loadTeamName() {
+  const storage = getStorage();
+  if (!storage) {
+    return null;
+  }
+
+  const raw = storage.getItem(KEYS.teamName);
+  if (!raw) {
+    return null;
+  }
+
+  const value = String(raw).trim();
+  return value || null;
+}
+
+export function saveTeamName(name) {
+  const storage = getStorage();
+  if (!storage) {
+    return;
+  }
+
+  const value = String(name ?? "").trim();
+  if (!value) {
+    return;
+  }
+
+  storage.setItem(KEYS.teamName, value);
 }

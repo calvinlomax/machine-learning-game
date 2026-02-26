@@ -101,7 +101,8 @@ select:focus-visible {
 .hero {
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.8rem;
   padding: 0.6rem 0.2rem;
 }
@@ -119,20 +120,73 @@ select:focus-visible {
   line-height: 1.05;
 }
 
-.base-readout {
-  text-align: right;
-  font-size: 0.76rem;
-  color: var(--muted);
+.team-panel {
+  min-width: min(280px, 100%);
   display: grid;
-  gap: 0.2rem;
+  gap: 0.26rem;
+  justify-items: start;
 }
 
-.base-readout code {
-  background: rgba(255, 255, 255, 0.65);
+.team-panel-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.team-name-btn {
+  text-align: left;
   border: 1px solid var(--line);
-  border-radius: 0.4rem;
-  padding: 0.15rem 0.4rem;
-  color: #4d3f32;
+  background: rgba(255, 255, 255, 0.66);
+  border-radius: 0.5rem;
+  font-size: 0.96rem;
+  font-weight: 650;
+  padding: 0.42rem 0.66rem;
+}
+
+.team-name-input {
+  width: 100%;
+  max-width: 320px;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line);
+  padding: 0.42rem 0.66rem;
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+}
+
+.section-head h2 {
+  font-size: 1.02rem;
+}
+
+.section-head-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.help-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.help-btn:hover {
+  transform: translateY(-1px) scale(1.03);
 }
 
 .surface {
@@ -242,10 +296,17 @@ select:focus-visible {
 }
 
 .saved-racers h3 {
-  margin-bottom: 0.45rem;
   color: #f1f5f5;
   font-size: 0.84rem;
   letter-spacing: 0.03em;
+}
+
+.saved-racers-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
 }
 
 .saved-racer-list {
@@ -371,12 +432,6 @@ select:focus-visible {
   grid-column: 2;
   grid-row: 2;
   justify-self: end;
-}
-
-.controls h2,
-.training h2 {
-  font-size: 1.02rem;
-  margin-bottom: 0.55rem;
 }
 
 .button-row {
@@ -596,6 +651,25 @@ select:focus-visible {
   gap: 0.5rem;
 }
 
+.help-modal {
+  width: min(94vw, 560px);
+}
+
+.help-modal-body {
+  color: #3b3024;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.help-modal-body ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
 .field-stack {
   display: grid;
   gap: 0.25rem;
@@ -622,6 +696,15 @@ select:focus-visible {
 
   .hero {
     grid-column: 1 / -1;
+  }
+
+  .team-panel {
+    justify-items: end;
+  }
+
+  .team-name-btn,
+  .team-name-input {
+    text-align: right;
   }
 
   .canvas-surface {
