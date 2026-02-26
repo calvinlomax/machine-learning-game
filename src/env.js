@@ -82,7 +82,7 @@ export class RacingEnv {
     this.prevProjection = null;
     this.currentObservation = new Float32Array(0);
 
-    this.clearLapHistory();
+    this.clearLapHistory({ resetBestLapCount: true });
     this.resetEpisode(true);
   }
 
@@ -92,10 +92,14 @@ export class RacingEnv {
     return this.resetEpisode(true);
   }
 
-  clearLapHistory() {
+  clearLapHistory(options = {}) {
+    const resetBestLapCount = Boolean(options.resetBestLapCount);
     this.bestLapTimeSec = null;
     this.lastLapTimeSec = null;
-    this.completedLaps = 0;
+    this.currentLapCount = 0;
+    if (resetBestLapCount) {
+      this.bestLapCount = 0;
+    }
   }
 
   updateConfig({ maxEpisodeSteps, actionSmoothing, rewardWeights }) {
@@ -160,6 +164,7 @@ export class RacingEnv {
     this.done = false;
     this.lapProgress = 0;
     this.lapElapsedSec = 0;
+    this.currentLapCount = 0;
 
     this.trajectory = [{ x: this.car.x, y: this.car.y }];
 
@@ -286,7 +291,10 @@ export class RacingEnv {
       if (this.bestLapTimeSec === null || this.lapElapsedSec < this.bestLapTimeSec) {
         this.bestLapTimeSec = this.lapElapsedSec;
       }
-      this.completedLaps += 1;
+      this.currentLapCount += 1;
+      if (this.currentLapCount > this.bestLapCount) {
+        this.bestLapCount = this.currentLapCount;
+      }
       this.lapElapsedSec = 0;
     }
     this.lapProgress = nextLapProgress;
@@ -336,7 +344,9 @@ export class RacingEnv {
       progress: this.prevProjection?.progress || 0,
       lapProgress: this.lapProgress || 0,
       thisLapTimeSec: this.lapElapsedSec || 0,
-      bestLapTimeSec: this.bestLapTimeSec
+      bestLapTimeSec: this.bestLapTimeSec,
+      currentLapCount: this.currentLapCount || 0,
+      bestLapCount: this.bestLapCount || 0
     };
   }
 }

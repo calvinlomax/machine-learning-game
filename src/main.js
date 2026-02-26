@@ -4,6 +4,7 @@ import { RacingEnv } from "./env.js";
 import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
+import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
 import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js";
 import {
   clearBestReturn,
@@ -73,6 +74,9 @@ let running = false;
 let episodeNumber = 1;
 let fps = 0;
 let lastStepMs = 0;
+let currentCarId = DEFAULT_CAR_ID;
+
+const carById = new Map(CAR_PRESETS.map((car) => [car.id, car]));
 
 const fixedStepMs = env.dt * 1000;
 let accumulatorMs = 0;
@@ -172,10 +176,21 @@ async function handleNewRacerRequest() {
 
   agent.resetModel();
   clearBestReturn();
-  env.clearLapHistory();
+  env.clearLapHistory({ resetBestLapCount: true });
   bestEpisodeReturn = Number.NEGATIVE_INFINITY;
   episodeNumber = 1;
   observation = env.resetEpisode(true);
+}
+
+async function handleCarPickerRequest() {
+  const selectedCarId = await ui.openCarPicker(CAR_PRESETS, currentCarId);
+  if (!selectedCarId) {
+    return;
+  }
+
+  if (carById.has(selectedCarId)) {
+    currentCarId = selectedCarId;
+  }
 }
 
 ui.setHandlers({
@@ -213,6 +228,13 @@ ui.setHandlers({
 
     handleNewRacerRequest();
   },
+  onRequestCarPicker: () => {
+    if (ui.isModalOpen()) {
+      return;
+    }
+
+    handleCarPickerRequest();
+  },
   onApplySeed: (seedText) => {
     if (ui.isModalOpen()) {
       return;
@@ -239,7 +261,8 @@ function renderFrame() {
     trail: renderState.trail,
     sensorHits: renderState.sensorHits,
     showSensors: renderOptions.showSensors,
-    showTrail: renderOptions.showTrail
+    showTrail: renderOptions.showTrail,
+    carStyle: carById.get(currentCarId)
   });
 
   ui.updateStats({
@@ -252,6 +275,8 @@ function renderFrame() {
     bestReturn: bestEpisodeReturn,
     thisLapTimeSec: renderState.thisLapTimeSec,
     bestLapTimeSec: renderState.bestLapTimeSec,
+    currentLapCount: renderState.currentLapCount,
+    bestLapCount: renderState.bestLapCount,
     epsilon: agent.epsilon,
     learningRate: hyperparams.learningRate,
     gamma: hyperparams.gamma,

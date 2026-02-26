@@ -10,8 +10,9 @@
     <main class="app-shell">
       <header class="hero">
         <div>
-          <p class="kicker">Machine Learning Game</p>
+          <h2 class="kicker">ML Racer</h2>
           <h1>Move the sliders below to create the best racer!</h1>
+          <p class="kicker">Tip: let the racer learn for a while before making any changes, you might be surprised!</p>
         </div>
         <div class="base-readout">
           <span>Base path</span>
@@ -21,6 +22,16 @@
 
       <section class="surface canvas-surface" aria-label="Simulation">
         <div class="canvas-frame">
+          <div class="canvas-lap-counter" aria-live="polite">
+            <div class="canvas-lap-row">
+              <span>Laps</span>
+              <strong id="stat-canvas-lap-current">0</strong>
+            </div>
+            <div class="canvas-lap-row">
+              <span>Best</span>
+              <strong id="stat-canvas-lap-best">0</strong>
+            </div>
+          </div>
           <canvas id="game-canvas" width="900" height="600" aria-label="Racing simulation canvas"></canvas>
         </div>
         <div class="hud" aria-live="polite">
@@ -56,6 +67,9 @@
           <button id="new-track-btn">New track</button>
           <button id="new-racer-btn" class="danger">New racer</button>
         </div>
+        <div class="button-row button-row-single">
+          <button id="change-car-btn">Change car</button>
+        </div>
 
         <div class="seed-row">
           <label for="seed-input">Track seed</label>
@@ -87,6 +101,18 @@
         <div class="modal-actions">
           <button id="modal-cancel-btn">Cancel</button>
           <button id="modal-confirm-btn" class="danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="car-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal car-modal" role="dialog" aria-modal="true" aria-labelledby="car-modal-title" tabindex="-1">
+        <h2 id="car-modal-title">Change car</h2>
+        <p>Pick a livery for your racer.</p>
+        <div id="car-option-grid" class="car-option-grid"></div>
+        <div class="modal-actions">
+          <button id="car-modal-close-btn">Close</button>
         </div>
       </div>
     </div>

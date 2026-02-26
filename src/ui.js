@@ -208,6 +208,7 @@ export function createUI({ initialHyperparams, initialSeed }) {
     episodeResetBtn: document.getElementById("episode-reset-btn"),
     newTrackBtn: document.getElementById("new-track-btn"),
     newRacerBtn: document.getElementById("new-racer-btn"),
+    changeCarBtn: document.getElementById("change-car-btn"),
     applySeedBtn: document.getElementById("apply-seed-btn"),
     seedInput: document.getElementById("seed-input"),
     resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
@@ -217,6 +218,8 @@ export function createUI({ initialHyperparams, initialSeed }) {
   };
 
   const stats = {
+    canvasLapCurrent: document.getElementById("stat-canvas-lap-current"),
+    canvasLapBest: document.getElementById("stat-canvas-lap-best"),
     lapCurrent: document.getElementById("stat-lap-current"),
     lapBest: document.getElementById("stat-lap-best"),
     episode: document.getElementById("stat-episode"),
@@ -243,12 +246,21 @@ export function createUI({ initialHyperparams, initialSeed }) {
     backdrop: document.querySelector("#confirm-modal-root .modal-backdrop")
   };
 
+  const carModal = {
+    root: document.getElementById("car-modal-root"),
+    dialog: document.querySelector("#car-modal-root .car-modal"),
+    optionGrid: document.getElementById("car-option-grid"),
+    closeBtn: document.getElementById("car-modal-close-btn"),
+    backdrop: document.querySelector("#car-modal-root .modal-backdrop")
+  };
+
   const handlers = {
     onStartPause: () => {},
     onStep: () => {},
     onEpisodeReset: () => {},
     onRequestNewTrack: () => {},
     onRequestNewRacer: () => {},
+    onRequestCarPicker: () => {},
     onApplySeed: () => {},
     onHyperparamsChange: () => {}
   };
@@ -348,6 +360,8 @@ export function createUI({ initialHyperparams, initialSeed }) {
   }
 
   function updateStats(nextStats) {
+    stats.canvasLapCurrent.textContent = String(Math.max(0, Math.floor(nextStats.currentLapCount ?? 0)));
+    stats.canvasLapBest.textContent = String(Math.max(0, Math.floor(nextStats.bestLapCount ?? 0)));
     stats.lapCurrent.textContent = formatLapTime(nextStats.thisLapTimeSec ?? 0);
     stats.lapBest.textContent = formatLapTime(nextStats.bestLapTimeSec ?? 0);
 
@@ -373,16 +387,33 @@ export function createUI({ initialHyperparams, initialSeed }) {
   }
 
   let modalOpen = false;
+  let activeModal = null;
   let modalResolver = null;
   let previousFocused = null;
+
+  function activeDialog() {
+    if (activeModal === "confirm") {
+      return modal.dialog;
+    }
+    if (activeModal === "car") {
+      return carModal.dialog;
+    }
+    return null;
+  }
 
   function closeModal(result) {
     if (!modalOpen) {
       return;
     }
 
+    if (activeModal === "confirm") {
+      modal.root.hidden = true;
+    } else if (activeModal === "car") {
+      carModal.root.hidden = true;
+    }
+
     modalOpen = false;
-    modal.root.hidden = true;
+    activeModal = null;
 
     const resolver = modalResolver;
     modalResolver = null;
@@ -408,7 +439,12 @@ export function createUI({ initialHyperparams, initialSeed }) {
     }
 
     if (event.key === "Tab") {
-      const focusable = getFocusableElements(modal.dialog);
+      const dialog = activeDialog();
+      if (!dialog) {
+        return;
+      }
+
+      const focusable = getFocusableElements(dialog);
       if (!focusable.length) {
         return;
       }
@@ -435,6 +471,7 @@ export function createUI({ initialHyperparams, initialSeed }) {
     }
 
     modalOpen = true;
+    activeModal = "confirm";
     previousFocused = document.activeElement;
 
     modal.title.textContent = title;
@@ -456,6 +493,59 @@ export function createUI({ initialHyperparams, initialSeed }) {
   modal.cancelBtn.addEventListener("click", () => closeModal(false));
   modal.confirmBtn.addEventListener("click", () => closeModal(true));
   modal.backdrop.addEventListener("click", () => closeModal(false));
+
+  function buildCarOptionButton(car, currentCarId) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "car-option-btn";
+    if (car.id === currentCarId) {
+      button.classList.add("active");
+    }
+    button.dataset.carId = car.id;
+
+    const preview = document.createElement("span");
+    preview.className = "car-preview";
+    preview.style.setProperty("--car-primary", car.primary);
+    preview.style.setProperty("--car-secondary", car.secondary);
+    preview.style.setProperty("--car-accent", car.accent);
+
+    const label = document.createElement("span");
+    label.className = "car-option-label";
+    label.textContent = car.alias;
+
+    button.append(preview, label);
+    return button;
+  }
+
+  function openCarPicker(cars, currentCarId) {
+    if (modalOpen) {
+      return Promise.resolve(null);
+    }
+
+    carModal.optionGrid.innerHTML = "";
+    const choices = Array.isArray(cars) ? cars : [];
+    for (let i = 0; i < choices.length; i += 1) {
+      const button = buildCarOptionButton(choices[i], currentCarId);
+      button.addEventListener("click", () => closeModal(button.dataset.carId));
+      carModal.optionGrid.appendChild(button);
+    }
+
+    modalOpen = true;
+    activeModal = "car";
+    previousFocused = document.activeElement;
+    carModal.root.hidden = false;
+
+    return new Promise((resolve) => {
+      modalResolver = resolve;
+      requestAnimationFrame(() => {
+        const firstChoice = carModal.optionGrid.querySelector("button");
+        (firstChoice || carModal.closeBtn).focus();
+      });
+    });
+  }
+
+  carModal.closeBtn.addEventListener("click", () => closeModal(null));
+  carModal.backdrop.addEventListener("click", () => closeModal(null));
 
   function confirmNewTrack() {
     return confirmAction({
@@ -482,6 +572,7 @@ export function createUI({ initialHyperparams, initialSeed }) {
   elements.episodeResetBtn.addEventListener("click", () => handlers.onEpisodeReset());
   elements.newTrackBtn.addEventListener("click", () => handlers.onRequestNewTrack());
   elements.newRacerBtn.addEventListener("click", () => handlers.onRequestNewRacer());
+  elements.changeCarBtn.addEventListener("click", () => handlers.onRequestCarPicker());
   elements.applySeedBtn.addEventListener("click", () => handlers.onApplySeed(elements.seedInput.value));
 
   elements.resetDefaultsBtn.addEventListener("click", () => {
@@ -512,6 +603,7 @@ export function createUI({ initialHyperparams, initialSeed }) {
     updateStats,
     confirmNewTrack,
     confirmNewRacer,
+    openCarPicker,
     isModalOpen() {
       return modalOpen;
     }

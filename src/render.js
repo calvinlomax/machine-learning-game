@@ -13,6 +13,12 @@ function drawPolyline(ctx, points, closePath = false) {
   }
 }
 
+const DEFAULT_CAR_STYLE = {
+  primary: "#f49b2c",
+  secondary: "#311809",
+  accent: "#f7e4bf"
+};
+
 export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } = {}) {
   const ctx = canvas.getContext("2d", { alpha: false });
   let dpr = Math.max(1, window.devicePixelRatio || 1);
@@ -139,40 +145,97 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     }
   }
 
-  function drawCar(car) {
+  function drawCar(car, carStyle = DEFAULT_CAR_STYLE) {
     if (!car) {
       return;
     }
+
+    const primary = carStyle?.primary || DEFAULT_CAR_STYLE.primary;
+    const secondary = carStyle?.secondary || DEFAULT_CAR_STYLE.secondary;
+    const accent = carStyle?.accent || DEFAULT_CAR_STYLE.accent;
 
     ctx.save();
     ctx.translate(car.x, car.y);
     ctx.rotate(car.heading);
 
-    ctx.fillStyle = "#f49b2c";
-    ctx.strokeStyle = "#311809";
-    ctx.lineWidth = 1.5;
-
+    ctx.fillStyle = "#111111";
     ctx.beginPath();
-    ctx.moveTo(14, 0);
-    ctx.lineTo(-12, -8);
-    ctx.lineTo(-7, 0);
-    ctx.lineTo(-12, 8);
+    ctx.arc(7, -7.4, 2.25, 0, Math.PI * 2);
+    ctx.arc(7, 7.4, 2.25, 0, Math.PI * 2);
+    ctx.arc(-14, -8.7, 2.35, 0, Math.PI * 2);
+    ctx.arc(-14, 8.7, 2.35, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = primary;
+    ctx.strokeStyle = "#121212";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(17, 0);
+    ctx.lineTo(10.5, -4.2);
+    ctx.lineTo(2.6, -5.5);
+    ctx.lineTo(-8.5, -6.5);
+    ctx.lineTo(-14.4, -8.4);
+    ctx.lineTo(-21, -8.4);
+    ctx.lineTo(-21, 8.4);
+    ctx.lineTo(-14.4, 8.4);
+    ctx.lineTo(-8.5, 6.5);
+    ctx.lineTo(2.6, 5.5);
+    ctx.lineTo(10.5, 4.2);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = "#f7e4bf";
+    ctx.fillStyle = secondary;
     ctx.beginPath();
-    ctx.moveTo(6, 0);
-    ctx.lineTo(-5, -4.2);
-    ctx.lineTo(-5, 4.2);
+    ctx.moveTo(8.3, 0);
+    ctx.lineTo(4.2, -2.4);
+    ctx.lineTo(-10.6, -2.8);
+    ctx.lineTo(-13.8, -5.7);
+    ctx.lineTo(-13.8, 5.7);
+    ctx.lineTo(-10.6, 2.8);
+    ctx.lineTo(4.2, 2.4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.moveTo(17, 0);
+    ctx.lineTo(8.7, -1.9);
+    ctx.lineTo(8.7, 1.9);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = secondary;
+    ctx.fillRect(14.2, -7.1, 6.4, 2.5);
+    ctx.fillRect(14.2, 4.6, 6.4, 2.5);
+    ctx.fillRect(12.8, -4.6, 1.4, 9.2);
+
+    ctx.fillStyle = accent;
+    ctx.fillRect(-23.9, -8.9, 2.2, 17.8);
+    ctx.fillRect(-26.3, -9.9, 2.6, 19.8);
+
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(-11, -4.2);
+    ctx.lineTo(8.2, -1.55);
+    ctx.moveTo(-11, 4.2);
+    ctx.lineTo(8.2, 1.55);
+    ctx.stroke();
+
+    ctx.fillStyle = "#171717";
+    ctx.beginPath();
+    ctx.moveTo(2.3, 0);
+    ctx.lineTo(-0.9, -1.1);
+    ctx.lineTo(-4.6, 0);
+    ctx.lineTo(-0.9, 1.1);
     ctx.closePath();
     ctx.fill();
 
     ctx.restore();
   }
 
-  function render({ track, car, trail, sensorHits, showSensors, showTrail }) {
+  function render({ track, car, trail, sensorHits, showSensors, showTrail, carStyle }) {
     resizeForDpr();
     drawBackground();
     drawTrack(track);
@@ -182,7 +245,7 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     if (showSensors) {
       drawSensors(car, sensorHits);
     }
-    drawCar(car);
+    drawCar(car, carStyle);
   }
 
   resizeForDpr();
