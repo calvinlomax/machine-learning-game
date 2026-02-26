@@ -156,106 +156,126 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     ctx.translate(car.x, car.y);
     ctx.rotate(car.heading);
 
-    // -------- Wheels (bigger rear, slightly larger track) --------
-    ctx.fillStyle = "#101010";
+    // Scale to match your existing coordinate system.
+    // If the car looks too big/small, change s.
+    const s = 1.0;
+    ctx.scale(s, s);
+
+    // ---------- Wheels (open wheel look) ----------
+    const wheelFill = "#0f0f10";
+    ctx.fillStyle = wheelFill;
+
+    // rear wheels (bigger)
     ctx.beginPath();
-    // front wheels
-    ctx.arc(9.5, -8.2, 2.15, 0, Math.PI * 2);
-    ctx.arc(9.5, 8.2, 2.15, 0, Math.PI * 2);
-    // rear wheels
-    ctx.arc(-15.8, -9.6, 2.55, 0, Math.PI * 2);
-    ctx.arc(-15.8, 9.6, 2.55, 0, Math.PI * 2);
+    ctx.roundRect(-17.5, -11.0, 6.8, 6.8, 1.6);
+    ctx.roundRect(-17.5, 4.2, 6.8, 6.8, 1.6);
     ctx.fill();
 
-    // -------- Main body (F1-ish outline: nose, sidepods, taper to rear) --------
+    // front wheels (smaller)
+    ctx.beginPath();
+    ctx.roundRect(8.6, -10.0, 6.2, 6.2, 1.6);
+    ctx.roundRect(8.6, 3.8, 6.2, 6.2, 1.6);
+    ctx.fill();
+
+    // ---------- Main silhouette (simplified F1 top view) ----------
+    // Nose -> sidepods -> engine cover -> rear section
     ctx.fillStyle = primary;
-    ctx.strokeStyle = "#121212";
+    ctx.strokeStyle = "#141414";
     ctx.lineWidth = 1.2;
 
     ctx.beginPath();
     // nose tip
-    ctx.moveTo(18.5, 0);
-    // front wing area
-    ctx.lineTo(13.0, -5.0);
-    // nose narrowing
-    ctx.lineTo(8.2, -3.6);
-    // chassis to sidepod
-    ctx.lineTo(2.8, -5.9);
-    // sidepod bulge
-    ctx.lineTo(-8.8, -7.4);
-    // rear body
-    ctx.lineTo(-16.8, -9.0);
-    // rear wing mount area
-    ctx.lineTo(-23.8, -9.0);
-    ctx.lineTo(-23.8, 9.0);
-    ctx.lineTo(-16.8, 9.0);
-    ctx.lineTo(-8.8, 7.4);
-    ctx.lineTo(2.8, 5.9);
-    ctx.lineTo(8.2, 3.6);
-    ctx.lineTo(13.0, 5.0);
+    ctx.moveTo(22.0, 0);
+
+    // upper nose edge to front axle area
+    ctx.quadraticCurveTo(16.8, -2.0, 12.5, -2.6);
+
+    // widen to sidepods
+    ctx.quadraticCurveTo(5.0, -3.8, 1.0, -6.8);
+    ctx.quadraticCurveTo(-4.0, -10.4, -10.5, -10.2);
+
+    // rear body widening near suspension
+    ctx.quadraticCurveTo(-15.2, -10.0, -19.8, -8.6);
+
+    // rear-most body (before wing)
+    ctx.quadraticCurveTo(-24.2, -7.2, -24.2, -3.0);
+    ctx.lineTo(-24.2, 3.0);
+    ctx.quadraticCurveTo(-24.2, 7.2, -19.8, 8.6);
+
+    // mirror back along lower edge
+    ctx.quadraticCurveTo(-15.2, 10.0, -10.5, 10.2);
+    ctx.quadraticCurveTo(-4.0, 10.4, 1.0, 6.8);
+    ctx.quadraticCurveTo(5.0, 3.8, 12.5, 2.6);
+    ctx.quadraticCurveTo(16.8, 2.0, 22.0, 0);
+
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    // -------- Cockpit + engine cover (secondary) --------
+    // ---------- Front wing (simple) ----------
+    ctx.fillStyle = secondary;
+    // main plane
+    ctx.beginPath();
+    ctx.roundRect(16.0, -10.8, 9.2, 3.0, 1.2);
+    ctx.roundRect(16.0, 7.8, 9.2, 3.0, 1.2);
+    ctx.fill();
+    // center pillar
+    ctx.beginPath();
+    ctx.roundRect(14.6, -3.6, 1.8, 7.2, 0.9);
+    ctx.fill();
+
+    // ---------- Rear wing (simple) ----------
+    ctx.fillStyle = accent;
+    // endplates
+    ctx.beginPath();
+    ctx.roundRect(-30.0, -11.2, 3.2, 22.4, 1.2);
+    ctx.roundRect(-26.3, -10.0, 2.4, 20.0, 1.1);
+    ctx.fill();
+    // top/bottom flaps
+    ctx.beginPath();
+    ctx.roundRect(-30.6, -11.2, 8.8, 1.8, 0.9);
+    ctx.roundRect(-30.6, 9.4, 8.8, 1.8, 0.9);
+    ctx.fill();
+
+    // ---------- Cockpit + engine cover ----------
     ctx.fillStyle = secondary;
     ctx.beginPath();
-    ctx.moveTo(6.8, 0);
-    ctx.lineTo(3.2, -2.3);
-    ctx.lineTo(-7.8, -2.9);
-    ctx.lineTo(-12.8, -6.0);
-    ctx.lineTo(-15.5, -6.0);
-    ctx.lineTo(-15.5, 6.0);
-    ctx.lineTo(-12.8, 6.0);
-    ctx.lineTo(-7.8, 2.9);
-    ctx.lineTo(3.2, 2.3);
+    // cockpit spine
+    ctx.moveTo(8.5, 0);
+    ctx.quadraticCurveTo(4.0, -2.4, -3.0, -2.8);
+    ctx.quadraticCurveTo(-9.8, -3.2, -13.6, -6.8);
+    ctx.lineTo(-16.6, -6.8);
+    ctx.quadraticCurveTo(-18.8, -6.8, -19.0, -4.5);
+    ctx.lineTo(-19.0, 4.5);
+    ctx.quadraticCurveTo(-18.8, 6.8, -16.6, 6.8);
+    ctx.lineTo(-13.6, 6.8);
+    ctx.quadraticCurveTo(-9.8, 3.2, -3.0, 2.8);
+    ctx.quadraticCurveTo(4.0, 2.4, 8.5, 0);
     ctx.closePath();
     ctx.fill();
 
-    // cockpit opening (dark)
+    // cockpit opening
     ctx.fillStyle = "#151515";
     ctx.beginPath();
-    ctx.moveTo(-1.2, 0);
-    ctx.lineTo(-3.4, -1.4);
-    ctx.lineTo(-6.1, 0);
-    ctx.lineTo(-3.4, 1.4);
-    ctx.closePath();
+    ctx.ellipse(-1.8, 0, 2.5, 1.6, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // -------- Nose tip accent --------
+    // ---------- Accents (nose + sidepod lines) ----------
     ctx.fillStyle = accent;
     ctx.beginPath();
-    ctx.moveTo(18.5, 0);
-    ctx.lineTo(10.4, -1.9);
-    ctx.lineTo(10.4, 1.9);
+    ctx.moveTo(22.0, 0);
+    ctx.lineTo(13.2, -2.1);
+    ctx.lineTo(13.2, 2.1);
     ctx.closePath();
     ctx.fill();
 
-    // -------- Front wing (secondary) --------
-    ctx.fillStyle = secondary;
-    // upper/lower main planes
-    ctx.fillRect(13.9, -8.1, 7.4, 2.6);
-    ctx.fillRect(13.9, 5.5, 7.4, 2.6);
-    // center pillar
-    ctx.fillRect(12.4, -5.5, 1.5, 11.0);
-
-    // -------- Rear wing (accent) --------
-    ctx.fillStyle = accent;
-    // endplates + element
-    ctx.fillRect(-24.9, -9.8, 2.4, 19.6);
-    ctx.fillRect(-27.7, -10.8, 3.0, 21.6);
-    // top flap
-    ctx.fillRect(-28.2, -10.8, 6.0, 1.5);
-    ctx.fillRect(-28.2, 9.3, 6.0, 1.5);
-
-    // -------- Sidepod stripes (accent strokes) --------
     ctx.strokeStyle = accent;
     ctx.lineWidth = 1.05;
     ctx.beginPath();
-    ctx.moveTo(-10.8, -4.7);
-    ctx.lineTo(8.8, -1.6);
-    ctx.moveTo(-10.8, 4.7);
-    ctx.lineTo(8.8, 1.6);
+    ctx.moveTo(-10.0, -5.2);
+    ctx.lineTo(10.2, -1.8);
+    ctx.moveTo(-10.0, 5.2);
+    ctx.lineTo(10.2, 1.8);
     ctx.stroke();
 
     ctx.restore();
