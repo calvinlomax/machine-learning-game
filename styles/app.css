@@ -155,40 +155,6 @@ select:focus-visible {
   font-size: 0.95rem;
 }
 
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.45rem;
-}
-
-.section-head h2 {
-  font-size: 1.02rem;
-}
-
-.section-head-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.help-btn {
-  width: 1.85rem;
-  height: 1.85rem;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-.help-btn:hover {
-  transform: translateY(-1px) scale(1.03);
-}
-
 .surface {
   background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
   border: 1px solid var(--line);
@@ -299,13 +265,6 @@ select:focus-visible {
   color: #f1f5f5;
   font-size: 0.84rem;
   letter-spacing: 0.03em;
-}
-
-.saved-racers-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.4rem;
   margin-bottom: 0.45rem;
 }
 
@@ -432,6 +391,13 @@ select:focus-visible {
   grid-column: 2;
   grid-row: 2;
   justify-self: end;
+}
+
+.canvas-surface > h2,
+.controls > h2,
+.training h2 {
+  font-size: 1.02rem;
+  margin-bottom: 0.55rem;
 }
 
 .button-row {
@@ -649,25 +615,6 @@ select:focus-visible {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
-}
-
-.help-modal {
-  width: min(94vw, 560px);
-}
-
-.help-modal-body {
-  color: #3b3024;
-  font-size: 0.92rem;
-  line-height: 1.45;
-  display: grid;
-  gap: 0.6rem;
-}
-
-.help-modal-body ul {
-  margin: 0;
-  padding-left: 1.15rem;
-  display: grid;
-  gap: 0.25rem;
 }
 
 .field-stack {

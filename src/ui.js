@@ -43,62 +43,6 @@ function sanitizeTeamName(value) {
   return text || "ML1 Academy";
 }
 
-function createHelpContent(baseUrl) {
-  return {
-    team: {
-      title: "Team Section Help",
-      intro: "Set your team identity. This name is cached in your browser and reused next time.",
-      items: [
-        "Click the team name to edit it.",
-        "Press Enter to save the new name. Press Escape to cancel edits.",
-        `Base path is still handled internally as ${baseUrl}.`
-      ]
-    },
-    viewer: {
-      title: "Viewer Section Help",
-      intro: "This section shows the live race simulation and performance HUD.",
-      items: [
-        "Canvas: top-down race world with the current procedural track.",
-        "Lap boxes: worst lap, current lap count, and best lap records.",
-        "HUD grid: episode, step, rewards, epsilon, learning settings, and FPS/step timing.",
-        "Saved Racers subsection: up to 4 stored racers with deploy/edit/delete actions."
-      ]
-    },
-    "saved-racers": {
-      title: "Saved Racers Help",
-      intro: "Manage serialized racer snapshots stored in browser cache.",
-      items: [
-        "Each card shows name, episodes, best lap count, best return, and training steps.",
-        "Deploy Racer restores model weights, hyperparameters, metrics, and car selection.",
-        "Edit Racer changes saved name/car color.",
-        "Delete racer removes that entry permanently from localStorage."
-      ]
-    },
-    controls: {
-      title: "Controls Section Help",
-      intro: "Manual controls for simulation flow, reset actions, and rendering toggles.",
-      items: [
-        "Start/Pause toggles continuous stepping and online training.",
-        "Step advances exactly one environment step plus training updates.",
-        "Episode reset restarts only the current episode state.",
-        "New track/new racer require confirmation and reset the correct state.",
-        "Apply seed regenerates the track from the seed input.",
-        "Sensor/trail toggles only affect rendering visibility."
-      ]
-    },
-    training: {
-      title: "Training Section Help",
-      intro: "Tune RL hyperparameters and reward shaping while the browser agent trains online.",
-      items: [
-        "Each slider updates its value immediately and affects ongoing training behavior.",
-        "Replay/batch/target settings control DQN stability and learning speed.",
-        "Reward weights directly change the objective used during environment stepping.",
-        "Reset Defaults restores all sliders to the configured baseline."
-      ]
-    }
-  };
-}
-
 const PARAM_DEFS = [
   {
     id: "learningRate",
@@ -269,7 +213,7 @@ function getFocusableElements(root) {
   return Array.from(root.querySelectorAll(selector)).filter((el) => !el.hasAttribute("disabled"));
 }
 
-export function createUI({ initialHyperparams, initialSeed, initialTeamName, baseUrl = "/" }) {
+export function createUI({ initialHyperparams, initialSeed, initialTeamName }) {
   const elements = {
     startPauseBtn: document.getElementById("start-pause-btn"),
     stepBtn: document.getElementById("step-btn"),
@@ -286,8 +230,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
     sliderContainer: document.getElementById("training-sliders"),
     savedRacerList: document.getElementById("saved-racer-list"),
     teamNameDisplay: document.getElementById("team-name-display"),
-    teamNameInput: document.getElementById("team-name-input"),
-    helpButtons: Array.from(document.querySelectorAll("[data-help-section]"))
+    teamNameInput: document.getElementById("team-name-input")
   };
 
   const stats = {
@@ -340,15 +283,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
     backdrop: document.querySelector("#racer-modal-root .modal-backdrop")
   };
 
-  const helpModal = {
-    root: document.getElementById("help-modal-root"),
-    dialog: document.querySelector("#help-modal-root .help-modal"),
-    title: document.getElementById("help-modal-title"),
-    body: document.getElementById("help-modal-body"),
-    closeBtn: document.getElementById("help-modal-close-btn"),
-    backdrop: document.querySelector("#help-modal-root .modal-backdrop")
-  };
-
   const handlers = {
     onStartPause: () => {},
     onStep: () => {},
@@ -368,7 +302,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
   let hyperparams = clampHyperparams(initialHyperparams);
   let teamName = sanitizeTeamName(initialTeamName);
   let editingTeamName = false;
-  const helpContent = createHelpContent(baseUrl);
   const sliderControls = new Map();
 
   function notifyHyperparamChange() {
@@ -651,9 +584,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
     const confirmVisible = modal.root && !modal.root.hidden;
     const carVisible = carModal.root && !carModal.root.hidden;
     const racerVisible = racerModal.root && !racerModal.root.hidden;
-    const helpVisible = helpModal.root && !helpModal.root.hidden;
 
-    if (!confirmVisible && !carVisible && !racerVisible && !helpVisible) {
+    if (!confirmVisible && !carVisible && !racerVisible) {
       modalOpen = false;
       activeModal = null;
       modalResolver = null;
@@ -670,9 +602,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
     if (activeModal === "racer") {
       return racerModal.dialog;
     }
-    if (activeModal === "help") {
-      return helpModal.dialog;
-    }
     return null;
   }
 
@@ -687,8 +616,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
       carModal.root.hidden = true;
     } else if (activeModal === "racer") {
       racerModal.root.hidden = true;
-    } else if (activeModal === "help") {
-      helpModal.root.hidden = true;
     }
 
     modalOpen = false;
@@ -836,68 +763,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
 
   carModal.closeBtn.addEventListener("click", () => closeModal(null));
   carModal.backdrop.addEventListener("click", () => closeModal(null));
-
-  function buildHelpBody(sectionId) {
-    const content = helpContent[sectionId] || {
-      title: "Help",
-      intro: "No help text is available for this section yet.",
-      items: []
-    };
-
-    if (!helpModal.title || !helpModal.body) {
-      return content;
-    }
-
-    helpModal.title.textContent = content.title;
-    helpModal.body.innerHTML = "";
-
-    const intro = document.createElement("p");
-    intro.textContent = content.intro;
-    helpModal.body.appendChild(intro);
-
-    if (Array.isArray(content.items) && content.items.length) {
-      const list = document.createElement("ul");
-      for (let i = 0; i < content.items.length; i += 1) {
-        const item = document.createElement("li");
-        item.textContent = content.items[i];
-        list.appendChild(item);
-      }
-      helpModal.body.appendChild(list);
-    }
-
-    return content;
-  }
-
-  function openHelpModal(sectionId) {
-    clearDanglingModalState();
-
-    if (!hasModalElements(helpModal, ["root", "dialog", "title", "body", "closeBtn"])) {
-      return Promise.resolve(false);
-    }
-
-    if (modalOpen) {
-      if (activeModal === "help") {
-        return Promise.resolve(false);
-      }
-      closeModal(false);
-    }
-
-    buildHelpBody(sectionId);
-    modalOpen = true;
-    activeModal = "help";
-    previousFocused = document.activeElement;
-    helpModal.root.hidden = false;
-
-    return new Promise((resolve) => {
-      modalResolver = resolve;
-      requestAnimationFrame(() => {
-        helpModal.closeBtn.focus();
-      });
-    });
-  }
-
-  helpModal.closeBtn?.addEventListener("click", () => closeModal(true));
-  helpModal.backdrop?.addEventListener("click", () => closeModal(true));
 
   function openRacerModal({
     title,
@@ -1086,14 +951,6 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, bas
       endTeamNameEdit(true);
     }
   });
-
-  for (let i = 0; i < elements.helpButtons.length; i += 1) {
-    const button = elements.helpButtons[i];
-    button.addEventListener("click", () => {
-      const sectionId = button.dataset.helpSection || "";
-      openHelpModal(sectionId);
-    });
-  }
 
   buildSliderPanel();
   setSavedRacers([], []);

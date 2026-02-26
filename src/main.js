@@ -76,8 +76,7 @@ const agent = new DQNAgent({
 const ui = createUI({
   initialHyperparams: hyperparams,
   initialSeed: currentSeed,
-  initialTeamName: teamName,
-  baseUrl: BASE_URL
+  initialTeamName: teamName
 });
 
 let running = false;
