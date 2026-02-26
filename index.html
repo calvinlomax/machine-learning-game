@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ML Racer</title>
+    <link rel="stylesheet" href="./styles/app.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="kicker">Machine Learning Game</p>
+          <h1>2D RL Racetrack Trainer</h1>
+        </div>
+        <div class="base-readout">
+          <span>Base path</span>
+          <code id="base-url-readout">/</code>
+        </div>
+      </header>
+
+      <section class="surface canvas-surface" aria-label="Simulation">
+        <div class="canvas-frame">
+          <canvas id="game-canvas" width="900" height="600" aria-label="Racing simulation canvas"></canvas>
+          <div class="hud" aria-live="polite">
+            <div class="hud-grid">
+              <div class="hud-item"><span>Episode</span><strong id="stat-episode">1</strong></div>
+              <div class="hud-item"><span>Step</span><strong id="stat-step">0</strong></div>
+              <div class="hud-item"><span>Train Steps</span><strong id="stat-total-train">0</strong></div>
+              <div class="hud-item"><span>Lap Progress</span><strong id="stat-progress">0.0%</strong></div>
+              <div class="hud-item"><span>Reward</span><strong id="stat-reward">0.000</strong></div>
+              <div class="hud-item"><span>Ep Return</span><strong id="stat-ep-return">0.000</strong></div>
+              <div class="hud-item"><span>Best Return</span><strong id="stat-best-return">0.000</strong></div>
+              <div class="hud-item"><span>Epsilon</span><strong id="stat-epsilon">1.000</strong></div>
+              <div class="hud-item"><span>LR</span><strong id="stat-lr">0.00030</strong></div>
+              <div class="hud-item"><span>Gamma</span><strong id="stat-gamma">0.990</strong></div>
+              <div class="hud-item"><span>FPS</span><strong id="stat-fps">0.0</strong></div>
+              <div class="hud-item"><span>Step ms</span><strong id="stat-step-ms">0.00</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="surface controls" aria-label="Controls">
+        <h2>Controls</h2>
+        <div class="button-row">
+          <button id="start-pause-btn" class="primary">Start</button>
+          <button id="step-btn">Step</button>
+          <button id="episode-reset-btn">Episode reset</button>
+        </div>
+        <div class="button-row">
+          <button id="new-track-btn">New track</button>
+          <button id="new-racer-btn" class="danger">New racer</button>
+        </div>
+
+        <div class="seed-row">
+          <label for="seed-input">Track seed</label>
+          <input id="seed-input" type="text" inputmode="numeric" autocomplete="off" />
+          <button id="apply-seed-btn">Apply seed</button>
+        </div>
+
+        <div class="toggle-row">
+          <label><input id="toggle-sensors" type="checkbox" checked /> Show ray sensors</label>
+          <label><input id="toggle-trail" type="checkbox" checked /> Show trajectory trail</label>
+        </div>
+      </section>
+
+      <section class="surface training" aria-label="Training settings">
+        <div class="training-head">
+          <h2>Training</h2>
+          <button id="reset-defaults-btn">Reset Defaults</button>
+        </div>
+        <p class="training-note">Epsilon decay is applied once at the end of each episode.</p>
+        <div id="training-sliders" class="sliders"></div>
+      </section>
+    </main>
+
+    <div id="confirm-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
+        <h2 id="modal-title">Confirm action</h2>
+        <p id="modal-message"></p>
+        <div class="modal-actions">
+          <button id="modal-cancel-btn">Cancel</button>
+          <button id="modal-confirm-btn" class="danger">Confirm</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

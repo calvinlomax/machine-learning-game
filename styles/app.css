@@ -1,0 +1,363 @@
+:root {
+  --bg: #f5efe2;
+  --bg-accent: #eadcc2;
+  --surface: #fff9ed;
+  --surface-2: #fff6e8;
+  --text: #1e1a16;
+  --muted: #66584a;
+  --line: #cfbea1;
+  --primary: #0d7f61;
+  --primary-2: #0a644d;
+  --danger: #b03629;
+  --danger-2: #8a2a20;
+  --shadow: 0 18px 35px rgba(84, 55, 27, 0.15);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 20% 20%, #fff6e8 0%, transparent 45%),
+    radial-gradient(circle at 80% 0%, #f2e0bd 0%, transparent 40%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg-accent) 100%);
+  min-height: 100vh;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--surface);
+  color: var(--text);
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(53, 40, 25, 0.12);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+button.primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+}
+
+button.primary:hover {
+  background: var(--primary-2);
+}
+
+button.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #ffffff;
+}
+
+button.danger:hover {
+  background: var(--danger-2);
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgba(13, 127, 97, 0.35);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  width: min(1120px, 100% - 1.1rem);
+  margin: 0 auto;
+  padding: 0.8rem 0 1.2rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 0.8rem;
+  padding: 0.6rem 0.2rem;
+}
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-weight: 600;
+  color: var(--muted);
+  font-size: 0.73rem;
+}
+
+.hero h1 {
+  font-size: clamp(1.25rem, 4vw, 2rem);
+  line-height: 1.05;
+}
+
+.base-readout {
+  text-align: right;
+  font-size: 0.76rem;
+  color: var(--muted);
+  display: grid;
+  gap: 0.2rem;
+}
+
+.base-readout code {
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.15rem 0.4rem;
+  color: #4d3f32;
+}
+
+.surface {
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  box-shadow: var(--shadow);
+  padding: 0.75rem;
+}
+
+.canvas-surface {
+  padding: 0.6rem;
+}
+
+.canvas-frame {
+  position: relative;
+  border-radius: 0.8rem;
+  overflow: hidden;
+  border: 1px solid #a79a83;
+}
+
+#game-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: #1b2428;
+  aspect-ratio: 3 / 2;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: 0.45rem;
+}
+
+.hud-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+}
+
+.hud-item {
+  background: rgba(8, 15, 17, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 0.45rem;
+  color: #f5f9f9;
+  padding: 0.22rem 0.34rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.67rem;
+  gap: 0.35rem;
+}
+
+.hud-item span {
+  color: rgba(230, 238, 239, 0.82);
+}
+
+.hud-item strong {
+  font-size: 0.73rem;
+  letter-spacing: 0.01em;
+}
+
+.controls h2,
+.training h2 {
+  font-size: 1.02rem;
+  margin-bottom: 0.55rem;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.button-row:first-of-type {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.seed-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.seed-row label {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.seed-row input {
+  width: 100%;
+  border-radius: 0.55rem;
+  border: 1px solid var(--line);
+  padding: 0.45rem 0.55rem;
+  min-width: 0;
+}
+
+.toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.toggle-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.training-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.training-note {
+  margin: 0.4rem 0 0.65rem;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.sliders {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.2rem 0.5rem;
+  align-items: center;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid #d8c9af;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.56);
+}
+
+.slider-row label {
+  font-size: 0.84rem;
+  color: #32291f;
+}
+
+.slider-row output {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.slider-row input[type="range"] {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.modal-root {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+
+.modal-root[hidden] {
+  display: none;
+}
+
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.modal {
+  position: relative;
+  background: #fffdf8;
+  border: 1px solid #d1bf9f;
+  border-radius: 0.9rem;
+  width: min(94vw, 430px);
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.75rem;
+  box-shadow: 0 28px 42px rgba(0, 0, 0, 0.28);
+}
+
+.modal h2 {
+  font-size: 1.05rem;
+}
+
+.modal p {
+  color: #4f4337;
+  line-height: 1.35;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+@media (min-width: 860px) {
+  .app-shell {
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
+  }
+
+  .hero {
+    grid-column: 1 / -1;
+  }
+
+  .canvas-surface {
+    grid-column: 1;
+    grid-row: 2 / span 2;
+  }
+
+  .controls {
+    grid-column: 2;
+  }
+
+  .training {
+    grid-column: 2;
+  }
+
+  .hud-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
