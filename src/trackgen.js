@@ -5,7 +5,6 @@ const EDGE_MARGIN = 86;
 const DEFAULT_TRACK_WIDTH = 112;
 const DEFAULT_SAMPLES = 300;
 const MIN_SHAPE_POINT_DISTANCE = 6;
-const MIN_SAFE_TRACK_WIDTH = 48;
 const MAX_BOUNDARY_FIX_PASSES = 9;
 
 export const WORLD_WIDTH = 900;
@@ -290,7 +289,8 @@ function createBoundaries(centerline, width) {
 }
 
 function buildSafeBoundaries(centerline, requestedWidth) {
-  let effectiveWidth = Math.max(MIN_SAFE_TRACK_WIDTH, requestedWidth);
+  const minAllowedWidth = Math.max(32, requestedWidth * 0.65);
+  let effectiveWidth = Math.max(minAllowedWidth, requestedWidth);
   let boundaries = createBoundaries(centerline, effectiveWidth);
 
   for (let pass = 0; pass < MAX_BOUNDARY_FIX_PASSES; pass += 1) {
@@ -306,7 +306,7 @@ function buildSafeBoundaries(centerline, requestedWidth) {
       };
     }
 
-    effectiveWidth = Math.max(MIN_SAFE_TRACK_WIDTH, effectiveWidth * 0.88);
+    effectiveWidth = Math.max(minAllowedWidth, requestedWidth * 0.9 ** (pass + 1));
     boundaries = createBoundaries(centerline, effectiveWidth);
   }
 

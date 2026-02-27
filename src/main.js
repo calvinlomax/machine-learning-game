@@ -1,11 +1,11 @@
 import { RNG, normalizeSeed, randomSeed } from "./rng.js";
-import { generateTrack, generateTrackFromShape, WORLD_HEIGHT, WORLD_WIDTH } from "./trackgen.js";
+import { generateTrack, generateTrackFromShape, WORLD_HEIGHT, WORLD_WIDTH } from "./trackgen.js?v=track-width-20260227";
 import { RacingEnv } from "./env.js";
 import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=pages-fix-20260227";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=track-width-20260227";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
