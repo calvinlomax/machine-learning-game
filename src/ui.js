@@ -541,6 +541,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   }
 
   function setRunning(isRunning) {
+    if (!elements.startPauseBtn) {
+      return;
+    }
     elements.startPauseBtn.textContent = isRunning ? "Pause" : "Start";
     elements.startPauseBtn.classList.toggle("primary", !isRunning);
   }
@@ -848,7 +851,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     clearDanglingModalState();
 
     if (!hasModalElements(modal, ["root", "dialog", "title", "message", "cancelBtn", "confirmBtn"])) {
-      return Promise.resolve(false);
+      return Promise.resolve(window.confirm(`${title}\n\n${message}`));
     }
 
     if (modalOpen) {
@@ -875,9 +878,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     });
   }
 
-  modal.cancelBtn.addEventListener("click", () => closeModal(false));
-  modal.confirmBtn.addEventListener("click", () => closeModal(true));
-  modal.backdrop.addEventListener("click", () => closeModal(false));
+  modal.cancelBtn?.addEventListener("click", () => closeModal(false));
+  modal.confirmBtn?.addEventListener("click", () => closeModal(true));
+  modal.backdrop?.addEventListener("click", () => closeModal(false));
 
   function buildTrackPresetButton(preset, selectedSeedValue) {
     const button = document.createElement("button");
@@ -907,7 +910,25 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
         "randomBtn"
       ])
     ) {
-      return Promise.resolve(null);
+      const fallbackInput = window.prompt(
+        "Enter a track seed. Leave blank for random. Type DRAW to draw a track.",
+        String(currentSeedValue ?? "")
+      );
+      if (fallbackInput === null) {
+        return Promise.resolve(null);
+      }
+      const trimmed = fallbackInput.trim();
+      if (!trimmed) {
+        return Promise.resolve({ action: "random" });
+      }
+      if (trimmed.toUpperCase() === "DRAW") {
+        return Promise.resolve({ action: "drawShape" });
+      }
+      return Promise.resolve({
+        action: "applySeed",
+        seed: trimmed,
+        presetName: null
+      });
     }
 
     if (modalOpen) {
@@ -1020,6 +1041,29 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   function openCarPicker(cars, currentCarId) {
     clearDanglingModalState();
 
+    if (!hasModalElements(carModal, ["root", "dialog", "optionGrid", "closeBtn"])) {
+      const choices = Array.isArray(cars) ? cars : [];
+      if (!choices.length) {
+        return Promise.resolve(null);
+      }
+
+      const currentIndex = Math.max(
+        0,
+        choices.findIndex((car) => car.id === currentCarId)
+      );
+      const promptText = choices.map((car, index) => `${index + 1}. ${car.alias}`).join("\n");
+      const answer = window.prompt(`Pick car number:\n${promptText}`, String(currentIndex + 1));
+      if (answer === null) {
+        return Promise.resolve(null);
+      }
+
+      const index = Math.floor(Number(answer)) - 1;
+      if (!Number.isFinite(index) || index < 0 || index >= choices.length) {
+        return Promise.resolve(null);
+      }
+      return Promise.resolve(choices[index].id);
+    }
+
     if (modalOpen) {
       if (activeModal === "car") {
         return Promise.resolve(null);
@@ -1049,8 +1093,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     });
   }
 
-  carModal.closeBtn.addEventListener("click", () => closeModal(null));
-  carModal.backdrop.addEventListener("click", () => closeModal(null));
+  carModal.closeBtn?.addEventListener("click", () => closeModal(null));
+  carModal.backdrop?.addEventListener("click", () => closeModal(null));
 
   function openRacerModal({
     title,
@@ -1140,10 +1184,10 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     });
   }
 
-  racerModal.cancelBtn.addEventListener("click", () => closeModal(null));
-  racerModal.saveBtn.addEventListener("click", submitRacerModal);
-  racerModal.backdrop.addEventListener("click", () => closeModal(null));
-  racerModal.dialog.addEventListener("keydown", (event) => {
+  racerModal.cancelBtn?.addEventListener("click", () => closeModal(null));
+  racerModal.saveBtn?.addEventListener("click", submitRacerModal);
+  racerModal.backdrop?.addEventListener("click", () => closeModal(null));
+  racerModal.dialog?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       event.preventDefault();
       submitRacerModal();
@@ -1273,6 +1317,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
         "applyBtn"
       ])
     ) {
+      window.alert("Settings UI is unavailable in this build. Reload and try again.");
       return Promise.resolve(null);
     }
 
@@ -1331,15 +1376,17 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
 
   applyTheme(settings.uiTheme);
 
-  elements.seedInput.value = String(initialSeed);
+  if (elements.seedInput) {
+    elements.seedInput.value = String(initialSeed);
+  }
 
-  elements.startPauseBtn.addEventListener("click", () => handlers.onStartPause());
-  elements.stepBtn.addEventListener("click", () => handlers.onStep());
-  elements.episodeResetBtn.addEventListener("click", () => handlers.onEpisodeReset());
-  elements.newTrackBtn.addEventListener("click", () => handlers.onRequestNewTrack());
-  elements.newRacerBtn.addEventListener("click", () => handlers.onRequestNewRacer());
-  elements.changeCarBtn.addEventListener("click", () => handlers.onRequestCarPicker());
-  elements.saveRacerBtn.addEventListener("click", () => handlers.onRequestSaveRacer());
+  elements.startPauseBtn?.addEventListener("click", () => handlers.onStartPause());
+  elements.stepBtn?.addEventListener("click", () => handlers.onStep());
+  elements.episodeResetBtn?.addEventListener("click", () => handlers.onEpisodeReset());
+  elements.newTrackBtn?.addEventListener("click", () => handlers.onRequestNewTrack());
+  elements.newRacerBtn?.addEventListener("click", () => handlers.onRequestNewRacer());
+  elements.changeCarBtn?.addEventListener("click", () => handlers.onRequestCarPicker());
+  elements.saveRacerBtn?.addEventListener("click", () => handlers.onRequestSaveRacer());
   elements.settingsBtn?.addEventListener("click", () => handlers.onRequestSettings());
   elements.shareBtn?.addEventListener("click", () => handlers.onRequestShare());
   elements.trainingSpeedSlider?.addEventListener("input", () => {
@@ -1348,7 +1395,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   elements.drawTrackFinishBtn?.addEventListener("click", () => handlers.onFinishDrawTrack());
   elements.drawTrackCancelBtn?.addEventListener("click", () => handlers.onCancelDrawTrack());
 
-  elements.resetDefaultsBtn.addEventListener("click", () => {
+  elements.resetDefaultsBtn?.addEventListener("click", () => {
     setHyperparams(DEFAULT_HYPERPARAMS, true);
   });
 
@@ -1400,10 +1447,12 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
       fillSettingsForm(next);
     },
     getSeedInput() {
-      return elements.seedInput.value;
+      return elements.seedInput ? elements.seedInput.value : "";
     },
     setSeedInput(value) {
-      elements.seedInput.value = String(value);
+      if (elements.seedInput) {
+        elements.seedInput.value = String(value);
+      }
     },
     getRenderOptions() {
       return {

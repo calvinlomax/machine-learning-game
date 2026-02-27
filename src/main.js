@@ -5,7 +5,7 @@ import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=tracks-save-20260227";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=pages-fix-20260227";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
