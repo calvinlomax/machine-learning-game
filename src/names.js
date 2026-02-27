@@ -18,7 +18,7 @@ export const BIZZARO_F1_NAMES = [
   "Logan Sargroove",
   "Daniel Ricciardough",
   "Jenson Buttone",
-  "Sebastian Vettlestar"
+  "Sebastian Kettle"
 ];
 
 export function randomBizzaroName() {

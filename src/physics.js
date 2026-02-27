@@ -11,7 +11,7 @@ export const ACTIONS = [
 ];
 
 export const CAR_CONFIG = {
-  maxSpeed: 340,
+  maxSpeed: 500,
   accel: 300,
   brake: 360,
   drag: 1.1,
