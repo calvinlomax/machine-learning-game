@@ -232,6 +232,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     saveRacerBtn: document.getElementById("save-racer-btn"),
     settingsBtn: document.getElementById("settings-btn"),
     shareBtn: document.getElementById("share-btn"),
+    trainingSpeedSlider: document.getElementById("train-speed-slider"),
+    trainingSpeedValue: document.getElementById("train-speed-value"),
     seedInput: document.getElementById("seed-input"),
     resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
     toggleSensors: document.getElementById("toggle-sensors"),
@@ -336,6 +338,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     onRequestSaveRacer: () => {},
     onRequestSettings: () => {},
     onRequestShare: () => {},
+    onTrainingSpeedChange: () => {},
     onFinishDrawTrack: () => {},
     onCancelDrawTrack: () => {},
     onDeploySavedRacer: () => {},
@@ -349,6 +352,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   let teamName = sanitizeTeamName(initialTeamName);
   let editingTeamName = false;
   let drawModeActive = false;
+  let trainingSpeed = clamp(Math.round(Number(initialSettings?.trainingSpeed) || 1), 1, 25);
   let settings = {
     worldWidth: Number(initialSettings?.worldWidth) || 900,
     worldHeight: Number(initialSettings?.worldHeight) || 600,
@@ -511,6 +515,25 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     if (drawModeActive) {
       elements.drawTrackStatus.textContent = `Draw mode: ${Math.max(0, Math.floor(pointCount))} points. Drag to sketch, then finish.`;
     }
+  }
+
+  function setTrainingSpeed(value, notify = false) {
+    trainingSpeed = clamp(Math.round(Number(value) || 1), 1, 25);
+
+    if (elements.trainingSpeedSlider) {
+      elements.trainingSpeedSlider.value = String(trainingSpeed);
+    }
+    if (elements.trainingSpeedValue) {
+      elements.trainingSpeedValue.textContent = `${trainingSpeed}x`;
+    }
+
+    if (notify) {
+      handlers.onTrainingSpeedChange(trainingSpeed);
+    }
+  }
+
+  function getTrainingSpeed() {
+    return trainingSpeed;
   }
 
   function setRunning(isRunning) {
@@ -1229,6 +1252,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   elements.saveRacerBtn.addEventListener("click", () => handlers.onRequestSaveRacer());
   elements.settingsBtn?.addEventListener("click", () => handlers.onRequestSettings());
   elements.shareBtn?.addEventListener("click", () => handlers.onRequestShare());
+  elements.trainingSpeedSlider?.addEventListener("input", () => {
+    setTrainingSpeed(elements.trainingSpeedSlider.value, true);
+  });
   elements.drawTrackFinishBtn?.addEventListener("click", () => handlers.onFinishDrawTrack());
   elements.drawTrackCancelBtn?.addEventListener("click", () => handlers.onCancelDrawTrack());
 
@@ -1264,6 +1290,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   });
 
   buildSliderPanel();
+  setTrainingSpeed(trainingSpeed, false);
   setSavedRacers([], []);
   setTeamName(teamName, false);
 
@@ -1296,6 +1323,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     setRunning,
     updateStats,
     setSavedRacers,
+    getTrainingSpeed,
+    setTrainingSpeed,
     confirmNewRacer,
     confirmDeleteRacer,
     promptSaveRacerName,

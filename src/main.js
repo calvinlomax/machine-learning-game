@@ -5,7 +5,7 @@ import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=settings-share-20260226";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=trackfix-speed-20260227";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
@@ -38,7 +38,8 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   trackColor: "#576f57",
   canvasBgColor: "#1b2b2f",
   canvasPattern: "diagonal",
-  uiTheme: "light"
+  uiTheme: "light",
+  trainingSpeed: 1
 });
 
 document.documentElement.dataset.baseUrl = BASE_URL;
@@ -67,7 +68,8 @@ function sanitizeAppSettings(input) {
     trackColor: sanitizeColor(source.trackColor, DEFAULT_APP_SETTINGS.trackColor),
     canvasBgColor: sanitizeColor(source.canvasBgColor, DEFAULT_APP_SETTINGS.canvasBgColor),
     canvasPattern: allowedPatterns.has(source.canvasPattern) ? source.canvasPattern : "diagonal",
-    uiTheme: source.uiTheme === "dark" ? "dark" : "light"
+    uiTheme: source.uiTheme === "dark" ? "dark" : "light",
+    trainingSpeed: Math.round(clamp(Number(source.trainingSpeed) || 1, 1, 25))
   };
 }
 
@@ -202,6 +204,7 @@ let lastStepMs = 0;
 let currentCarId = DEFAULT_CAR_ID;
 let currentDriverName = "Current Racer";
 let deployedRacerId = null;
+let trainingSpeedMultiplier = appSettings.trainingSpeed;
 
 const drawState = {
   active: false,
@@ -388,6 +391,8 @@ function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
   renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
   ui.setSettings(appSettings);
   ui.applyTheme(appSettings.uiTheme);
+  trainingSpeedMultiplier = appSettings.trainingSpeed;
+  ui.setTrainingSpeed(trainingSpeedMultiplier, false);
   saveAppSettings(appSettings);
 
   if (regenerateTrack) {
@@ -1031,6 +1036,14 @@ ui.setHandlers({
     }
     handleShareRequest();
   },
+  onTrainingSpeedChange: (nextSpeed) => {
+    trainingSpeedMultiplier = Math.round(clamp(Number(nextSpeed) || 1, 1, 25));
+    appSettings = sanitizeAppSettings({
+      ...appSettings,
+      trainingSpeed: trainingSpeedMultiplier
+    });
+    saveAppSettings(appSettings);
+  },
   onFinishDrawTrack: () => {
     finishDrawMode();
   },
@@ -1069,6 +1082,7 @@ ui.setTeamName(teamName, false);
 ui.setRunning(running);
 ui.setSettings(appSettings);
 ui.applyTheme(appSettings.uiTheme);
+ui.setTrainingSpeed(trainingSpeedMultiplier, false);
 ui.setDrawMode(false, 0);
 
 saveHyperparams(hyperparams);
@@ -1127,13 +1141,20 @@ function loop(timestamp) {
   }
 
   if (running && !ui.isModalOpen() && !drawState.active) {
-    accumulatorMs += frameDelta;
+    accumulatorMs += frameDelta * trainingSpeedMultiplier;
+    const maxStepsPerFrame = Math.max(120, trainingSpeedMultiplier * 120);
+    let processedSteps = 0;
 
-    while (accumulatorMs >= fixedStepMs) {
+    while (accumulatorMs >= fixedStepMs && processedSteps < maxStepsPerFrame) {
       const stepStart = performance.now();
       runOneStep();
       lastStepMs = performance.now() - stepStart;
       accumulatorMs -= fixedStepMs;
+      processedSteps += 1;
+    }
+
+    if (processedSteps >= maxStepsPerFrame) {
+      accumulatorMs = 0;
     }
   } else {
     accumulatorMs = 0;

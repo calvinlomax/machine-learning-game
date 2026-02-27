@@ -185,7 +185,52 @@ select:focus-visible {
 }
 
 .canvas-team-panel {
+  margin-bottom: 0;
+}
+
+.canvas-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
   margin-bottom: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.train-speed-control {
+  margin-left: auto;
+  min-width: min(300px, 100%);
+  display: grid;
+  justify-items: end;
+  gap: 0.2rem;
+}
+
+.train-speed-control label {
+  color: var(--muted);
+  font-size: 0.77rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.train-speed-field {
+  width: min(320px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.train-speed-field input[type="range"] {
+  width: 100%;
+  accent-color: var(--primary);
+}
+
+.train-speed-field output {
+  min-width: 2.5rem;
+  text-align: right;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .surface {
@@ -845,6 +890,20 @@ select:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .canvas-top-row {
+    align-items: stretch;
+  }
+
+  .train-speed-control {
+    min-width: 100%;
+    justify-items: start;
+    margin-left: 0;
+  }
+
+  .train-speed-field {
+    width: 100%;
+  }
+
   .draw-track-panel {
     grid-template-columns: 1fr;
   }

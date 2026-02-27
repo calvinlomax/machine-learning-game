@@ -17,18 +17,27 @@
       </header>
 
       <section class="surface canvas-surface" aria-label="Simulation">
-        <div class="team-panel canvas-team-panel">
-          <div class="team-panel-inline">
-            <span class="team-panel-label">Team Name</span>
-            <button id="team-name-display" type="button" class="team-name-btn">ML1 Academy</button>
-            <input
-              id="team-name-input"
-              class="team-name-input"
-              type="text"
-              maxlength="48"
-              autocomplete="off"
-              hidden
-            />
+        <div class="canvas-top-row">
+          <div class="team-panel canvas-team-panel">
+            <div class="team-panel-inline">
+              <span class="team-panel-label">Team Name</span>
+              <button id="team-name-display" type="button" class="team-name-btn">ML1 Academy</button>
+              <input
+                id="team-name-input"
+                class="team-name-input"
+                type="text"
+                maxlength="48"
+                autocomplete="off"
+                hidden
+              />
+            </div>
+          </div>
+          <div class="train-speed-control" aria-label="Training speed">
+            <label for="train-speed-slider">Training Speed</label>
+            <div class="train-speed-field">
+              <input id="train-speed-slider" type="range" min="1" max="25" step="1" value="1" />
+              <output id="train-speed-value" for="train-speed-slider">1x</output>
+            </div>
           </div>
         </div>
         <div class="canvas-frame">
@@ -226,6 +235,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=settings-share-20260226"></script>
+    <script type="module" src="./src/main.js?v=trackfix-speed-20260227"></script>
   </body>
 </html>
