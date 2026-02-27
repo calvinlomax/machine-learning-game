@@ -1,8 +1,10 @@
-# ML Racer (Browser-Only RL Game)
+# ML1 Grand Prix (Browser-Only RL Game)
 
-A static single-page machine learning game where a reinforcement learning agent learns to drive on a 2D top-down procedural racetrack.
+ML1 is static, single-page machine learning game where a reinforcement learning agent learns to drive on a 2D top-down procedural racetrack.
 
 The app is fully static, runs entirely in the browser, and requires no backend.
+
+© 2026 Calvin J. Lomax
 
 ## Tech stack
 
