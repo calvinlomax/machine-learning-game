@@ -5,7 +5,7 @@ import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=trackfix-speed-20260227";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=tracks-save-20260227";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
@@ -13,17 +13,20 @@ import {
   loadBestReturn,
   loadHyperparams,
   loadSavedRacers,
+  loadSavedTracks,
   loadTeamName,
   saveAppSettings,
   saveBestReturn,
   saveHyperparams,
   saveSavedRacers,
+  saveSavedTracks,
   saveTeamName
 } from "./storage.js";
 
 const BASE_URL = import.meta.env?.BASE_URL ?? "/";
 const DEFAULT_TEAM_NAME = "ML1 Academy";
 const MAX_SAVED_RACERS = 4;
+const MAX_SAVED_TRACKS = 12;
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
@@ -113,6 +116,22 @@ function createSavedRacerId(existingIds = new Set()) {
   let fallbackId = `racer-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
   while (existingIds.has(fallbackId)) {
     fallbackId = `racer-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  }
+  return fallbackId;
+}
+
+function createSavedTrackId(existingIds = new Set()) {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    let uuid = globalThis.crypto.randomUUID();
+    while (existingIds.has(uuid)) {
+      uuid = globalThis.crypto.randomUUID();
+    }
+    return uuid;
+  }
+
+  let fallbackId = `track-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  while (existingIds.has(fallbackId)) {
+    fallbackId = `track-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
   }
   return fallbackId;
 }
@@ -315,10 +334,73 @@ function sanitizeSavedRacers(rawRacers) {
 
 let savedRacers = sanitizeSavedRacers(loadSavedRacers());
 
+function sanitizeSavedTrack(entry, fallbackIndex) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const seed = normalizeSeed(clampSeedInput(entry.seed));
+  const rawName = typeof entry.name === "string" ? entry.name.trim() : "";
+  const name = rawName || `Track ${seed}`;
+  const createdAt = Number(entry.createdAt);
+  const updatedAt = Number(entry.updatedAt);
+
+  return {
+    id: typeof entry.id === "string" && entry.id ? entry.id : `track-${fallbackIndex}-${Date.now()}`,
+    name: name.slice(0, 64),
+    seed,
+    createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now()
+  };
+}
+
+function sanitizeSavedTracks(rawTracks) {
+  if (!Array.isArray(rawTracks)) {
+    return [];
+  }
+
+  const sanitized = [];
+  const usedIds = new Set();
+
+  for (let i = 0; i < rawTracks.length; i += 1) {
+    const trackEntry = sanitizeSavedTrack(rawTracks[i], i);
+    if (!trackEntry) {
+      continue;
+    }
+
+    let nextId = trackEntry.id;
+    if (!nextId || usedIds.has(nextId)) {
+      nextId = createSavedTrackId(usedIds);
+    }
+    usedIds.add(nextId);
+    sanitized.push(
+      nextId === trackEntry.id
+        ? trackEntry
+        : {
+            ...trackEntry,
+            id: nextId,
+            updatedAt: Date.now()
+          }
+    );
+  }
+
+  sanitized.sort((a, b) => (a.updatedAt || 0) - (b.updatedAt || 0));
+  return cloneSerializable(sanitized.slice(-MAX_SAVED_TRACKS), []);
+}
+
+let savedTracks = sanitizeSavedTracks(loadSavedTracks());
+
 function persistSavedRacers(nextSavedRacers) {
   const canonical = sanitizeSavedRacers(nextSavedRacers);
   saveSavedRacers(canonical);
   ui.setSavedRacers(canonical, CAR_PRESETS);
+  return canonical;
+}
+
+function persistSavedTracks(nextSavedTracks) {
+  const canonical = sanitizeSavedTracks(nextSavedTracks);
+  saveSavedTracks(canonical);
+  ui.setSavedTracks(canonical);
   return canonical;
 }
 
@@ -631,6 +713,26 @@ async function handleNewTrackRequest() {
 
   if (result.action === "applySeed") {
     setTrackFromSeed(result.seed, { name: result.presetName || null });
+    return;
+  }
+
+  if (result.action === "saveTrack") {
+    const safeSeed = normalizeSeed(clampSeedInput(result.seed));
+    const suggestedName = result.presetName || `Track ${safeSeed}`;
+    const chosenName = await ui.promptTrackName(suggestedName);
+    if (chosenName === null) {
+      return;
+    }
+
+    const existingIds = new Set(savedTracks.map((item) => item.id));
+    const payload = {
+      id: createSavedTrackId(existingIds),
+      name: String(chosenName || suggestedName).slice(0, 64),
+      seed: safeSeed,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    savedTracks = persistSavedTracks([...savedTracks, payload]);
   }
 }
 
@@ -824,6 +926,29 @@ async function handleEditSavedRacer(racerId) {
   if (deployedRacerId === racerId) {
     currentDriverName = nextName || currentDriverName;
   }
+}
+
+function handleDeploySavedTrack(trackId) {
+  const savedTrack = savedTracks.find((item) => item.id === trackId);
+  if (!savedTrack) {
+    return;
+  }
+
+  setTrackFromSeed(savedTrack.seed, { name: savedTrack.name || null });
+}
+
+async function handleDeleteSavedTrack(trackId) {
+  const savedTrack = savedTracks.find((item) => item.id === trackId);
+  if (!savedTrack) {
+    return;
+  }
+
+  const confirmed = await ui.confirmDeleteTrack(savedTrack.name || `Track ${savedTrack.seed}`);
+  if (!confirmed) {
+    return;
+  }
+
+  savedTracks = persistSavedTracks(savedTracks.filter((item) => item.id !== trackId));
 }
 
 function getShareCandidateList() {
@@ -1068,6 +1193,18 @@ ui.setHandlers({
     }
     handleEditSavedRacer(racerId);
   },
+  onDeploySavedTrack: (trackId) => {
+    if (ui.isModalOpen()) {
+      return;
+    }
+    handleDeploySavedTrack(trackId);
+  },
+  onDeleteSavedTrack: (trackId) => {
+    if (ui.isModalOpen()) {
+      return;
+    }
+    handleDeleteSavedTrack(trackId);
+  },
   onTeamNameChange: (nextTeamName) => {
     teamName = String(nextTeamName || "").trim() || DEFAULT_TEAM_NAME;
     saveTeamName(teamName);
@@ -1089,6 +1226,7 @@ saveHyperparams(hyperparams);
 saveTeamName(teamName);
 saveAppSettings(appSettings);
 savedRacers = persistSavedRacers(savedRacers);
+savedTracks = persistSavedTracks(savedTracks);
 
 function renderFrame() {
   const renderState = env.getRenderState();

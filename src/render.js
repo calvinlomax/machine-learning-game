@@ -146,19 +146,25 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     ctx.closePath();
     ctx.fill();
 
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "#1d2620";
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    // Draw limits after the road fill so boundaries always read as the road border.
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(14, 18, 16, 0.85)";
     drawPolyline(ctx, track.leftBoundary, true);
     ctx.stroke();
     drawPolyline(ctx, track.rightBoundary, true);
     ctx.stroke();
 
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.4;
     ctx.strokeStyle = boundaryColor;
     drawPolyline(ctx, track.leftBoundary, true);
     ctx.stroke();
     drawPolyline(ctx, track.rightBoundary, true);
     ctx.stroke();
+    ctx.restore();
 
     ctx.save();
     ctx.setLineDash([8, 7]);

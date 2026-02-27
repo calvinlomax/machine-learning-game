@@ -12,7 +12,7 @@
         <div>
           <h2 class="kicker">Created by Calvin Lomax</h2>
           <h1>ML1 Grand Prix - Train, Build, and Test Your Team with AI</h1>
-          <p class="kicker">Tip: let the driver learn for a while before changing hyperparameters, it may surpise you</p>
+          <p class="kicker">Tip: let the driver learn for a while before changing hyperparameters, it may surpise you.</p>
         </div>
       </header>
 
@@ -50,7 +50,7 @@
         </div>
         <div class="hud" aria-live="polite">
           <div class="lap-summary">
-            <div class="lap-metric"><span>Worst Lap:</span><strong id="stat-lap-worst">00:00:00</strong></div>
+            <div class="lap-metric"><span>This Lap:</span><strong id="stat-lap-worst">00:00:00</strong></div>
             <div class="lap-metric lap-count-metric">
               <div class="lap-count-row"><span>Laps:</span><strong id="stat-lap-count-current">0</strong></div>
               <div class="lap-count-row"><span>Best Laps:</span><strong id="stat-lap-count-best">0</strong></div>
@@ -74,6 +74,10 @@
           <section class="saved-racers" aria-label="Saved racers">
             <h3>Saved Racers</h3>
             <div id="saved-racer-list" class="saved-racer-list"></div>
+          </section>
+          <section class="saved-tracks" aria-label="Saved tracks">
+            <h3>Saved Tracks</h3>
+            <div id="saved-track-list" class="saved-track-list"></div>
           </section>
         </div>
       </section>
@@ -146,6 +150,7 @@
         <div id="track-preset-grid" class="track-preset-grid"></div>
         <div class="track-shape-row">
           <button id="draw-track-btn" type="button">Draw shape</button>
+          <button id="save-track-btn" type="button">Save This Track</button>
         </div>
         <div class="field-stack">
           <label for="seed-input">Track seed</label>
@@ -235,6 +240,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=trackfix-speed-20260227"></script>
+    <script type="module" src="./src/main.js?v=tracks-save-20260227"></script>
   </body>
 </html>

@@ -240,6 +240,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     toggleTrail: document.getElementById("toggle-trail"),
     sliderContainer: document.getElementById("training-sliders"),
     savedRacerList: document.getElementById("saved-racer-list"),
+    savedTrackList: document.getElementById("saved-track-list"),
     teamNameDisplay: document.getElementById("team-name-display"),
     teamNameInput: document.getElementById("team-name-input"),
     drawTrackPanel: document.getElementById("draw-track-panel"),
@@ -290,6 +291,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     dialog: document.querySelector("#track-modal-root .track-modal"),
     presetGrid: document.getElementById("track-preset-grid"),
     drawBtn: document.getElementById("draw-track-btn"),
+    saveBtn: document.getElementById("save-track-btn"),
     seedInput: document.getElementById("seed-input"),
     applyBtn: document.getElementById("apply-seed-btn"),
     randomBtn: document.getElementById("track-random-btn"),
@@ -344,6 +346,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     onDeploySavedRacer: () => {},
     onDeleteSavedRacer: () => {},
     onEditSavedRacer: () => {},
+    onDeploySavedTrack: () => {},
+    onDeleteSavedTrack: () => {},
     onTeamNameChange: () => {},
     onHyperparamsChange: () => {}
   };
@@ -544,7 +548,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   function updateStats(nextStats) {
     stats.lapCountCurrent.textContent = String(Math.max(0, Math.floor(nextStats.currentLapCount ?? 0)));
     stats.lapCountBest.textContent = String(Math.max(0, Math.floor(nextStats.bestLapCount ?? 0)));
-    stats.lapWorst.textContent = formatLapTime(nextStats.worstLapTimeSec ?? 0);
+    stats.lapWorst.textContent = formatLapTime(nextStats.thisLapTimeSec ?? 0);
     stats.lapBest.textContent = formatLapTime(nextStats.bestLapTimeSec ?? 0);
 
     stats.episode.textContent = String(nextStats.episode ?? 1);
@@ -659,6 +663,60 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     const carById = new Map((Array.isArray(cars) ? cars : []).map((car) => [car.id, car]));
     for (let i = 0; i < list.length; i += 1) {
       elements.savedRacerList.appendChild(createSavedRacerCard(list[i], carById));
+    }
+  }
+
+  function createSavedTrackCard(savedTrack) {
+    const card = document.createElement("article");
+    card.className = "saved-track-card";
+    card.dataset.trackId = savedTrack.id;
+
+    const name = document.createElement("div");
+    name.className = "saved-track-name";
+    name.textContent = savedTrack.name || `Track ${savedTrack.seed}`;
+
+    const seed = document.createElement("div");
+    seed.className = "saved-track-seed";
+    seed.textContent = `Seed: ${savedTrack.seed}`;
+
+    const actions = document.createElement("div");
+    actions.className = "saved-track-actions";
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.className = "danger";
+    deleteBtn.textContent = "Delete";
+    deleteBtn.addEventListener("click", () => handlers.onDeleteSavedTrack(savedTrack.id));
+
+    const deployBtn = document.createElement("button");
+    deployBtn.type = "button";
+    deployBtn.className = "primary";
+    deployBtn.textContent = "Deploy";
+    deployBtn.addEventListener("click", () => handlers.onDeploySavedTrack(savedTrack.id));
+
+    actions.append(deleteBtn, deployBtn);
+    card.append(name, seed, actions);
+
+    return card;
+  }
+
+  function setSavedTracks(savedTracks) {
+    const list = Array.isArray(savedTracks) ? savedTracks : [];
+    if (!elements.savedTrackList) {
+      return;
+    }
+
+    elements.savedTrackList.innerHTML = "";
+    if (!list.length) {
+      const empty = document.createElement("div");
+      empty.className = "saved-track-empty";
+      empty.textContent = "No saved tracks yet.";
+      elements.savedTrackList.appendChild(empty);
+      return;
+    }
+
+    for (let i = 0; i < list.length; i += 1) {
+      elements.savedTrackList.appendChild(createSavedTrackCard(list[i]));
     }
   }
 
@@ -904,6 +962,14 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   trackModal.drawBtn?.addEventListener("click", () => {
     closeModal({ action: "drawShape" });
   });
+  trackModal.saveBtn?.addEventListener("click", () => {
+    const presetButton = trackModal.presetGrid?.querySelector(".track-preset-btn.active");
+    closeModal({
+      action: "saveTrack",
+      seed: trackModal.seedInput?.value || "",
+      presetName: presetButton?.dataset?.presetName || null
+    });
+  });
   trackModal.closeBtn?.addEventListener("click", () => closeModal(null));
   trackModal.backdrop?.addEventListener("click", () => closeModal(null));
   trackModal.seedInput?.addEventListener("keydown", (event) => {
@@ -1102,6 +1168,15 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     });
   }
 
+  function confirmDeleteTrack(name) {
+    return confirmAction({
+      title: "Delete track",
+      message: `Delete ${name || "this track"}? This cannot be undone.`,
+      confirmText: "Delete",
+      confirmClass: "danger"
+    });
+  }
+
   function promptSaveRacerName(cars, currentCarId) {
     return openRacerModal({
       title: "Save racer",
@@ -1123,6 +1198,21 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
       showCarSelect: true,
       cars: Array.isArray(cars) ? cars : [],
       selectedCarId: savedRacer?.carId || ""
+    });
+  }
+
+  function promptTrackName(defaultName = "") {
+    return openRacerModal({
+      title: "Save track",
+      message: "Name this track seed.",
+      submitText: "Save track",
+      nameValue: defaultName,
+      showCarSelect: false
+    }).then((result) => {
+      if (!result) {
+        return null;
+      }
+      return result.name || "";
     });
   }
 
@@ -1292,6 +1382,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   buildSliderPanel();
   setTrainingSpeed(trainingSpeed, false);
   setSavedRacers([], []);
+  setSavedTracks([]);
   setTeamName(teamName, false);
 
   return {
@@ -1323,12 +1414,15 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     setRunning,
     updateStats,
     setSavedRacers,
+    setSavedTracks,
     getTrainingSpeed,
     setTrainingSpeed,
     confirmNewRacer,
     confirmDeleteRacer,
+    confirmDeleteTrack,
     promptSaveRacerName,
     promptEditRacer,
+    promptTrackName,
     openTrackPicker,
     openSettingsModal,
     openCarPicker,
