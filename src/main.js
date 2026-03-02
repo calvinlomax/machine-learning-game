@@ -144,7 +144,40 @@ function formatSeconds(secondsValue) {
   return `${value.toFixed(2)}s`;
 }
 
+function formatLapClock(secondsValue) {
+  const totalSeconds = Math.max(0, Number(secondsValue) || 0);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  const centiseconds = Math.floor((totalSeconds - Math.floor(totalSeconds)) * 100);
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}:${String(
+    centiseconds
+  ).padStart(2, "0")}`;
+}
+
 const canvas = document.getElementById("game-canvas");
+const raceCanvas = document.getElementById("race-canvas") || document.createElement("canvas");
+
+const raceModeElements = {
+  root: document.getElementById("race-mode-root"),
+  startBtn: document.getElementById("race-mode-start-btn"),
+  trackBtn: document.getElementById("race-mode-track-btn"),
+  deployBtn: document.getElementById("race-mode-deploy-btn"),
+  exitBtn: document.getElementById("race-mode-exit-btn"),
+  racerList: document.getElementById("race-racer-list"),
+  statTime: document.getElementById("race-stat-time"),
+  statLeader: document.getElementById("race-stat-leader"),
+  statLeaderLaps: document.getElementById("race-stat-leader-laps"),
+  statBestLap: document.getElementById("race-stat-best-lap"),
+  statTrack: document.getElementById("race-stat-track")
+};
+
+const raceTrackModalElements = {
+  root: document.getElementById("race-track-modal-root"),
+  presetGrid: document.getElementById("race-track-preset-grid"),
+  closeBtn: document.getElementById("race-track-close-btn"),
+  backdrop: document.querySelector("#race-track-modal-root .modal-backdrop")
+};
+
 const persistedSettings = loadAppSettings();
 let appSettings = sanitizeAppSettings({
   ...DEFAULT_APP_SETTINGS,
@@ -155,7 +188,12 @@ const renderer = createRenderer(canvas, {
   worldWidth: appSettings.worldWidth,
   worldHeight: appSettings.worldHeight
 });
+const raceRenderer = createRenderer(raceCanvas, {
+  worldWidth: appSettings.worldWidth,
+  worldHeight: appSettings.worldHeight
+});
 renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
+raceRenderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
 
 const persistedHyperparams = loadHyperparams();
 let hyperparams = clampHyperparams({
@@ -232,6 +270,25 @@ const drawState = {
 };
 
 const carById = new Map(CAR_PRESETS.map((car) => [car.id, car]));
+const presetById = new Map(TRACK_PRESETS.map((preset) => [preset.id, preset]));
+
+let raceTrackPresetId = TRACK_PRESETS[0]?.id || null;
+let raceTrackLabel = TRACK_PRESETS[0]?.name || `Seed ${currentSeed}`;
+let raceTrack = generateTrack(TRACK_PRESETS[0]?.seed ?? currentSeed, {
+  worldWidth: appSettings.worldWidth,
+  worldHeight: appSettings.worldHeight,
+  trackWidth: appSettings.trackWidth
+});
+
+const raceModeState = {
+  active: false,
+  running: false,
+  participants: [],
+  elapsedSec: 0,
+  accumulatorMs: 0,
+  modalOpen: false,
+  cardRefs: new Map()
+};
 
 function sanitizeSavedRacer(entry, fallbackIndex) {
   if (!entry || typeof entry !== "object") {
@@ -400,6 +457,7 @@ function persistSavedRacers(nextSavedRacers) {
   const canonical = sanitizeSavedRacers(nextSavedRacers);
   saveSavedRacers(canonical);
   ui.setSavedRacers(canonical, CAR_PRESETS);
+  syncRaceModeSavedRacers(canonical);
   return canonical;
 }
 
@@ -477,6 +535,7 @@ function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
   });
 
   renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
+  raceRenderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
   ui.setSettings(appSettings);
   ui.applyTheme(appSettings.uiTheme);
   trainingSpeedMultiplier = appSettings.trainingSpeed;
@@ -485,6 +544,7 @@ function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
 
   if (regenerateTrack) {
     regenerateTrackFromSource();
+    applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: true });
   }
 }
 
@@ -1131,6 +1191,501 @@ async function handleShareRequest() {
   window.prompt("Copy and share this summary:", shareText);
 }
 
+function getFocusableElements(root) {
+  if (!root) {
+    return [];
+  }
+  const selector = "button, input, [href], select, textarea, [tabindex]:not([tabindex='-1'])";
+  return Array.from(root.querySelectorAll(selector)).filter((el) => !el.hasAttribute("disabled"));
+}
+
+function getRacePresetById(presetId) {
+  if (presetById.has(presetId)) {
+    return presetById.get(presetId);
+  }
+  return TRACK_PRESETS[0] || null;
+}
+
+function applyRaceTrackPreset(presetId, options = {}) {
+  const resetParticipants = options.resetParticipants !== false;
+  const preset = getRacePresetById(presetId);
+
+  const chosenSeed = preset ? preset.seed : currentSeed;
+  raceTrackPresetId = preset?.id || raceTrackPresetId;
+  raceTrackLabel = preset?.name || `Seed ${normalizeSeed(clampSeedInput(chosenSeed))}`;
+
+  raceTrack = generateTrack(chosenSeed, {
+    worldWidth: appSettings.worldWidth,
+    worldHeight: appSettings.worldHeight,
+    trackWidth: appSettings.trackWidth
+  });
+
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+
+  if (resetParticipants) {
+    for (let i = 0; i < raceModeState.participants.length; i += 1) {
+      const participant = raceModeState.participants[i];
+      participant.env.setTrack(raceTrack);
+      participant.observation = participant.env.resetEpisode(true);
+      participant.renderState = participant.env.getRenderState();
+      participant.laps = 0;
+      participant.lastEnvLapCount = 0;
+      participant.progress = 0;
+      participant.currentLapTimeSec = 0;
+      participant.bestLapTimeSec = null;
+      participant.episodeCount = 1;
+      participant.status = "Ready";
+    }
+  }
+
+  if (raceModeElements.statTrack) {
+    raceModeElements.statTrack.textContent = raceTrackLabel;
+  }
+}
+
+function createRaceRacerCard(savedRacer) {
+  const card = document.createElement("article");
+  card.className = "race-racer-card";
+  card.dataset.racerId = savedRacer.id;
+
+  const head = document.createElement("div");
+  head.className = "race-racer-head";
+
+  const name = document.createElement("div");
+  name.className = "race-racer-name";
+  name.textContent = savedRacer.name || "Unnamed Racer";
+
+  const status = document.createElement("div");
+  status.className = "race-racer-status";
+  status.textContent = "Ready to deploy";
+
+  head.append(name, status);
+  card.appendChild(head);
+
+  const metrics = document.createElement("div");
+  metrics.className = "race-racer-metrics";
+
+  const lapsRow = document.createElement("div");
+  lapsRow.className = "race-racer-metric";
+  lapsRow.innerHTML = "<span>Laps</span><strong>0</strong>";
+
+  const progressRow = document.createElement("div");
+  progressRow.className = "race-racer-metric";
+  progressRow.innerHTML = "<span>Progress</span><strong>0.0%</strong>";
+
+  const bestLapRow = document.createElement("div");
+  bestLapRow.className = "race-racer-metric";
+  bestLapRow.innerHTML = "<span>Best lap</span><strong>00:00:00</strong>";
+
+  const episodesRow = document.createElement("div");
+  episodesRow.className = "race-racer-metric";
+  episodesRow.innerHTML = "<span>Episodes</span><strong>1</strong>";
+
+  metrics.append(lapsRow, progressRow, bestLapRow, episodesRow);
+  card.appendChild(metrics);
+
+  const refs = {
+    status,
+    laps: lapsRow.querySelector("strong"),
+    progress: progressRow.querySelector("strong"),
+    bestLap: bestLapRow.querySelector("strong"),
+    episodes: episodesRow.querySelector("strong")
+  };
+
+  raceModeState.cardRefs.set(savedRacer.id, refs);
+  return card;
+}
+
+function updateRaceRacerCards() {
+  const participantsById = new Map(raceModeState.participants.map((participant) => [participant.id, participant]));
+
+  for (let i = 0; i < savedRacers.length; i += 1) {
+    const racer = savedRacers[i];
+    const refs = raceModeState.cardRefs.get(racer.id);
+    if (!refs) {
+      continue;
+    }
+
+    const participant = participantsById.get(racer.id);
+    if (!participant) {
+      refs.status.textContent = "Ready to deploy";
+      refs.laps.textContent = "0";
+      refs.progress.textContent = "0.0%";
+      refs.bestLap.textContent = formatLapClock(racer.metrics?.bestLapTimeSec || 0);
+      refs.episodes.textContent = String(Math.max(1, Math.floor(Number(racer.metrics?.episodes) || 1)));
+      continue;
+    }
+
+    refs.status.textContent = participant.status;
+    refs.laps.textContent = String(Math.max(0, Math.floor(participant.laps)));
+    refs.progress.textContent = `${(clamp(participant.progress, 0, 1) * 100).toFixed(1)}%`;
+    refs.bestLap.textContent = formatLapClock(participant.bestLapTimeSec || 0);
+    refs.episodes.textContent = String(Math.max(1, Math.floor(participant.episodeCount || 1)));
+  }
+}
+
+function renderRaceRacerList() {
+  if (!raceModeElements.racerList) {
+    return;
+  }
+
+  raceModeElements.racerList.innerHTML = "";
+  raceModeState.cardRefs.clear();
+
+  if (!savedRacers.length) {
+    const empty = document.createElement("div");
+    empty.className = "race-racer-empty";
+    empty.textContent = "No saved racers available. Save racers in training mode first.";
+    raceModeElements.racerList.appendChild(empty);
+    return;
+  }
+
+  for (let i = 0; i < savedRacers.length; i += 1) {
+    raceModeElements.racerList.appendChild(createRaceRacerCard(savedRacers[i]));
+  }
+
+  updateRaceRacerCards();
+}
+
+function syncRaceModeSavedRacers(nextSavedRacers) {
+  const canonical = Array.isArray(nextSavedRacers) ? nextSavedRacers : [];
+  const allowedIds = new Set(canonical.map((racer) => racer.id));
+
+  raceModeState.participants = raceModeState.participants.filter((participant) => allowedIds.has(participant.id));
+
+  for (let i = 0; i < raceModeState.participants.length; i += 1) {
+    const participant = raceModeState.participants[i];
+    const source = canonical.find((racer) => racer.id === participant.id);
+    if (!source) {
+      continue;
+    }
+
+    participant.name = source.name || participant.name;
+    participant.carId = carById.has(source.carId) ? source.carId : DEFAULT_CAR_ID;
+    participant.carStyle = carById.get(participant.carId) || carById.get(DEFAULT_CAR_ID);
+  }
+
+  if (raceModeState.active) {
+    renderRaceRacerList();
+    updateRaceControlState();
+    updateRaceHud();
+  }
+}
+
+function createRaceParticipant(savedRacer, index) {
+  const sourceHyperparams = clampHyperparams({
+    ...DEFAULT_HYPERPARAMS,
+    ...(savedRacer.hyperparams || {}),
+    ...(savedRacer.agentSnapshot?.hyperparams || {})
+  });
+
+  const seedBase = normalizeSeed(`${raceTrack.seed}-${savedRacer.id}-${index}`);
+  const raceEnvRng = new RNG(seedBase ^ 0x9e3779b9);
+  const raceAgentRng = new RNG(seedBase ^ 0x85ebca6b);
+
+  const participantEnv = new RacingEnv({
+    track: raceTrack,
+    rng: raceEnvRng,
+    dt: env.dt,
+    maxEpisodeSteps: Math.max(200, sourceHyperparams.maxEpisodeSteps),
+    actionSmoothing: sourceHyperparams.actionSmoothing,
+    rewardWeights: {
+      progressWeight: sourceHyperparams.progressRewardWeight,
+      offTrackPenalty: sourceHyperparams.offTrackPenalty,
+      speedPenaltyWeight: sourceHyperparams.speedPenaltyWeight
+    }
+  });
+
+  const participantAgent = new DQNAgent({
+    observationSize: participantEnv.observationSize,
+    actionSize: ACTIONS.length,
+    rng: raceAgentRng,
+    hyperparams: sourceHyperparams
+  });
+
+  const snapshot = cloneSerializable(savedRacer.agentSnapshot, null);
+  const imported = participantAgent.importSnapshot({
+    ...(snapshot || {}),
+    hyperparams: sourceHyperparams
+  });
+  if (!imported) {
+    participantAgent.resetModel();
+  }
+
+  const renderState = participantEnv.getRenderState();
+  const bestLapTime = Number(renderState.bestLapTimeSec);
+
+  return {
+    id: savedRacer.id,
+    name: savedRacer.name || "Unnamed Racer",
+    carId: carById.has(savedRacer.carId) ? savedRacer.carId : DEFAULT_CAR_ID,
+    carStyle: carById.get(savedRacer.carId) || carById.get(DEFAULT_CAR_ID),
+    env: participantEnv,
+    agent: participantAgent,
+    observation: participantEnv.currentObservation,
+    renderState,
+    laps: 0,
+    lastEnvLapCount: Math.max(0, Math.floor(Number(renderState.currentLapCount) || 0)),
+    progress: clamp(Number(renderState.lapProgress) || 0, 0, 1),
+    currentLapTimeSec: Number(renderState.thisLapTimeSec) || 0,
+    bestLapTimeSec: Number.isFinite(bestLapTime) && bestLapTime > 0 ? bestLapTime : null,
+    episodeCount: 1,
+    status: "Ready"
+  };
+}
+
+function setRaceRunning(nextRunning) {
+  raceModeState.running = Boolean(nextRunning);
+  if (raceModeElements.startBtn) {
+    raceModeElements.startBtn.textContent = raceModeState.running ? "Pause" : "Start";
+    raceModeElements.startBtn.classList.toggle("primary", !raceModeState.running);
+  }
+}
+
+function updateRaceControlState() {
+  if (raceModeElements.deployBtn) {
+    raceModeElements.deployBtn.disabled = savedRacers.length === 0;
+  }
+  if (raceModeElements.startBtn) {
+    raceModeElements.startBtn.disabled = raceModeState.participants.length === 0;
+  }
+}
+
+function deployRaceParticipants() {
+  raceModeState.participants = savedRacers.map((savedRacer, index) => createRaceParticipant(savedRacer, index));
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+  setRaceRunning(false);
+  updateRaceControlState();
+  updateRaceRacerCards();
+}
+
+function pickRaceLeader() {
+  if (!raceModeState.participants.length) {
+    return null;
+  }
+
+  let leader = raceModeState.participants[0];
+  for (let i = 1; i < raceModeState.participants.length; i += 1) {
+    const candidate = raceModeState.participants[i];
+    if (candidate.laps > leader.laps) {
+      leader = candidate;
+      continue;
+    }
+    if (candidate.laps < leader.laps) {
+      continue;
+    }
+    if (candidate.progress > leader.progress) {
+      leader = candidate;
+      continue;
+    }
+    if (candidate.progress < leader.progress) {
+      continue;
+    }
+
+    const bestCandidate = Number(candidate.bestLapTimeSec);
+    const bestLeader = Number(leader.bestLapTimeSec);
+    const candidateHasTime = Number.isFinite(bestCandidate) && bestCandidate > 0;
+    const leaderHasTime = Number.isFinite(bestLeader) && bestLeader > 0;
+    if (candidateHasTime && (!leaderHasTime || bestCandidate < bestLeader)) {
+      leader = candidate;
+    }
+  }
+
+  return leader;
+}
+
+function findRaceBestLap() {
+  let best = null;
+  for (let i = 0; i < raceModeState.participants.length; i += 1) {
+    const value = Number(raceModeState.participants[i].bestLapTimeSec);
+    if (!Number.isFinite(value) || value <= 0) {
+      continue;
+    }
+    if (best === null || value < best) {
+      best = value;
+    }
+  }
+  return best;
+}
+
+function updateRaceHud() {
+  if (raceModeElements.statTime) {
+    raceModeElements.statTime.textContent = formatLapClock(raceModeState.elapsedSec);
+  }
+
+  const leader = pickRaceLeader();
+  if (raceModeElements.statLeader) {
+    raceModeElements.statLeader.textContent = leader ? leader.name : "--";
+  }
+  if (raceModeElements.statLeaderLaps) {
+    raceModeElements.statLeaderLaps.textContent = leader ? String(Math.max(0, Math.floor(leader.laps))) : "0";
+  }
+  if (raceModeElements.statBestLap) {
+    raceModeElements.statBestLap.textContent = formatLapClock(findRaceBestLap() || 0);
+  }
+  if (raceModeElements.statTrack) {
+    raceModeElements.statTrack.textContent = raceTrackLabel;
+  }
+}
+
+function stepRaceParticipants() {
+  for (let i = 0; i < raceModeState.participants.length; i += 1) {
+    const participant = raceModeState.participants[i];
+    const actionIndex = participant.agent.actGreedy(participant.observation);
+    const transition = participant.env.step(actionIndex);
+    participant.observation = transition.observation;
+
+    const renderState = participant.env.getRenderState();
+    participant.renderState = renderState;
+
+    const envLapCount = Math.max(0, Math.floor(Number(renderState.currentLapCount) || 0));
+    if (envLapCount > participant.lastEnvLapCount) {
+      participant.laps += envLapCount - participant.lastEnvLapCount;
+    }
+    participant.lastEnvLapCount = envLapCount;
+    participant.progress = clamp(Number(renderState.lapProgress) || 0, 0, 1);
+    participant.currentLapTimeSec = Number(renderState.thisLapTimeSec) || 0;
+
+    const bestLap = Number(renderState.bestLapTimeSec);
+    if (Number.isFinite(bestLap) && bestLap > 0) {
+      participant.bestLapTimeSec = bestLap;
+    }
+
+    if (transition.done) {
+      participant.status = transition.info?.offTrack ? "Respawning" : "Reset";
+      participant.episodeCount += 1;
+      participant.observation = participant.env.resetEpisode(true);
+      participant.renderState = participant.env.getRenderState();
+      participant.lastEnvLapCount = 0;
+      participant.progress = 0;
+      participant.currentLapTimeSec = 0;
+    } else if (raceModeState.running) {
+      participant.status = "Racing";
+    } else {
+      participant.status = "Paused";
+    }
+  }
+}
+
+function renderRaceFrame() {
+  const trails = [];
+  const cars = [];
+  const carStyles = [];
+
+  for (let i = 0; i < raceModeState.participants.length; i += 1) {
+    const participant = raceModeState.participants[i];
+    const renderState = participant.renderState || participant.env.getRenderState();
+    participant.renderState = renderState;
+    trails.push(renderState.trail);
+    cars.push(renderState.car);
+    carStyles.push(participant.carStyle);
+  }
+
+  raceRenderer.render({
+    track: raceTrack,
+    cars,
+    trails,
+    showTrail: true,
+    showSensors: false,
+    carStyles,
+    visuals: {
+      trackColor: appSettings.trackColor,
+      canvasBgColor: appSettings.canvasBgColor,
+      canvasPattern: appSettings.canvasPattern
+    }
+  });
+
+  updateRaceHud();
+  updateRaceRacerCards();
+}
+
+function closeRaceTrackModal() {
+  if (!raceModeState.modalOpen || !raceTrackModalElements.root) {
+    return;
+  }
+  raceModeState.modalOpen = false;
+  raceTrackModalElements.root.hidden = true;
+}
+
+function openRaceTrackModal() {
+  if (!raceModeState.active || raceModeState.modalOpen || !raceTrackModalElements.root || !raceTrackModalElements.presetGrid) {
+    return;
+  }
+
+  raceTrackModalElements.presetGrid.innerHTML = "";
+  for (let i = 0; i < TRACK_PRESETS.length; i += 1) {
+    const preset = TRACK_PRESETS[i];
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "track-preset-btn";
+    button.textContent = preset.name;
+    if (preset.id === raceTrackPresetId) {
+      button.classList.add("active");
+    }
+
+    button.addEventListener("click", () => {
+      applyRaceTrackPreset(preset.id, { resetParticipants: true });
+      setRaceRunning(false);
+      closeRaceTrackModal();
+    });
+    raceTrackModalElements.presetGrid.appendChild(button);
+  }
+
+  raceModeState.modalOpen = true;
+  raceTrackModalElements.root.hidden = false;
+
+  requestAnimationFrame(() => {
+    const first = raceTrackModalElements.presetGrid.querySelector("button");
+    (first || raceTrackModalElements.closeBtn)?.focus();
+  });
+}
+
+function openRaceMode() {
+  if (raceModeState.active || ui.isModalOpen()) {
+    return;
+  }
+
+  running = false;
+  ui.setRunning(false);
+  if (drawState.active) {
+    cancelDrawMode();
+  }
+
+  raceModeState.active = true;
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+  raceModeState.participants = [];
+
+  setRaceRunning(false);
+  applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: false });
+  renderRaceRacerList();
+  updateRaceControlState();
+  renderRaceFrame();
+
+  if (raceModeElements.root) {
+    raceModeElements.root.hidden = false;
+  }
+}
+
+function closeRaceMode() {
+  if (!raceModeState.active) {
+    return;
+  }
+
+  closeRaceTrackModal();
+  raceModeState.active = false;
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+  raceModeState.participants = [];
+  setRaceRunning(false);
+
+  if (raceModeElements.root) {
+    raceModeElements.root.hidden = true;
+  }
+}
+
 const fixedStepMs = env.dt * 1000;
 let accumulatorMs = 0;
 let lastFrameTime = performance.now();
@@ -1200,6 +1755,12 @@ ui.setHandlers({
     }
     handleShareRequest();
   },
+  onRequestRaceMode: () => {
+    if (ui.isModalOpen()) {
+      return;
+    }
+    openRaceMode();
+  },
   onTrainingSpeedChange: (nextSpeed) => {
     trainingSpeedMultiplier = Math.round(clamp(Number(nextSpeed) || 1, 1, 25));
     appSettings = sanitizeAppSettings({
@@ -1267,6 +1828,80 @@ saveAppSettings(appSettings);
 savedRacers = persistSavedRacers(savedRacers);
 savedTracks = persistSavedTracks(savedTracks);
 
+raceModeElements.startBtn?.addEventListener("click", () => {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+  if (!raceModeState.participants.length) {
+    return;
+  }
+  setRaceRunning(!raceModeState.running);
+});
+
+raceModeElements.deployBtn?.addEventListener("click", () => {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+  deployRaceParticipants();
+});
+
+raceModeElements.trackBtn?.addEventListener("click", () => {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+  openRaceTrackModal();
+});
+
+raceModeElements.exitBtn?.addEventListener("click", () => {
+  closeRaceMode();
+});
+
+raceTrackModalElements.closeBtn?.addEventListener("click", () => {
+  closeRaceTrackModal();
+});
+
+raceTrackModalElements.backdrop?.addEventListener("click", () => {
+  closeRaceTrackModal();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!raceModeState.modalOpen || !raceTrackModalElements.root || raceTrackModalElements.root.hidden) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    event.preventDefault();
+    closeRaceTrackModal();
+    return;
+  }
+
+  if (event.key !== "Tab") {
+    return;
+  }
+
+  const dialog = raceTrackModalElements.root.querySelector(".modal");
+  const focusable = getFocusableElements(dialog);
+  if (!focusable.length) {
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+});
+
+applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: false });
+updateRaceControlState();
+updateRaceHud();
+
 function renderFrame() {
   const renderState = env.getRenderState();
   const renderOptions = ui.getRenderOptions();
@@ -1315,6 +1950,33 @@ function loop(timestamp) {
   if (frameDelta > 0) {
     const currentFps = 1000 / frameDelta;
     fps = fps === 0 ? currentFps : fps * 0.9 + currentFps * 0.1;
+  }
+
+  if (raceModeState.active) {
+    accumulatorMs = 0;
+
+    if (raceModeState.running && !raceModeState.modalOpen) {
+      raceModeState.accumulatorMs += frameDelta;
+      const maxRaceStepsPerFrame = 12;
+      let processed = 0;
+
+      while (raceModeState.accumulatorMs >= fixedStepMs && processed < maxRaceStepsPerFrame) {
+        stepRaceParticipants();
+        raceModeState.elapsedSec += env.dt;
+        raceModeState.accumulatorMs -= fixedStepMs;
+        processed += 1;
+      }
+
+      if (processed >= maxRaceStepsPerFrame) {
+        raceModeState.accumulatorMs = 0;
+      }
+    } else {
+      raceModeState.accumulatorMs = 0;
+    }
+
+    renderRaceFrame();
+    requestAnimationFrame(loop);
+    return;
   }
 
   if (running && !ui.isModalOpen() && !drawState.active) {

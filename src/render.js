@@ -374,6 +374,9 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     track,
     car,
     trail,
+    cars,
+    trails,
+    carStyles,
     sensorHits,
     showSensors,
     showTrail,
@@ -384,13 +387,29 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     resizeForDpr();
     drawBackground(visuals);
     drawTrack(track, visuals);
+    const multiCars = Array.isArray(cars) && cars.length > 0 ? cars : null;
+    const multiTrails = Array.isArray(trails) ? trails : [];
+    const multiCarStyles = Array.isArray(carStyles) ? carStyles : [];
+
     if (showTrail) {
-      drawTrail(trail);
+      if (multiCars) {
+        for (let i = 0; i < multiCars.length; i += 1) {
+          drawTrail(multiTrails[i]);
+        }
+      } else {
+        drawTrail(trail);
+      }
     }
-    if (showSensors) {
+    if (showSensors && !multiCars) {
       drawSensors(car, sensorHits);
     }
     drawPendingShape(drawShapePoints);
+    if (multiCars) {
+      for (let i = 0; i < multiCars.length; i += 1) {
+        drawCar(multiCars[i], multiCarStyles[i] || carStyle);
+      }
+      return;
+    }
     drawCar(car, carStyle);
   }
 

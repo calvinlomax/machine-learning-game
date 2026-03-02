@@ -295,6 +295,11 @@ export class DQNAgent {
     return argMax(qValues);
   }
 
+  actGreedy(observation) {
+    const qValues = this.onlineNetwork.predict(observation);
+    return argMax(qValues);
+  }
+
   remember(transition) {
     this.replay.push({
       state: Float32Array.from(transition.state),

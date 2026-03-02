@@ -240,6 +240,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     saveRacerBtn: document.getElementById("save-racer-btn"),
     settingsBtn: document.getElementById("settings-btn"),
     shareBtn: document.getElementById("share-btn"),
+    raceModeBtn: document.getElementById("race-mode-btn"),
     trainingSpeedSlider: document.getElementById("train-speed-slider"),
     trainingSpeedValue: document.getElementById("train-speed-value"),
     seedInput: document.getElementById("seed-input"),
@@ -349,6 +350,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     onRequestSaveRacer: () => {},
     onRequestSettings: () => {},
     onRequestShare: () => {},
+    onRequestRaceMode: () => {},
     onTrainingSpeedChange: () => {},
     onFinishDrawTrack: () => {},
     onCancelDrawTrack: () => {},
@@ -1464,6 +1466,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   elements.saveRacerBtn?.addEventListener("click", () => handlers.onRequestSaveRacer());
   elements.settingsBtn?.addEventListener("click", () => handlers.onRequestSettings());
   elements.shareBtn?.addEventListener("click", () => handlers.onRequestShare());
+  elements.raceModeBtn?.addEventListener("click", () => handlers.onRequestRaceMode());
   elements.trainingSpeedSlider?.addEventListener("input", () => {
     setTrainingSpeed(elements.trainingSpeedSlider.value, true);
   });
