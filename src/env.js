@@ -98,6 +98,7 @@ export class RacingEnv {
     this.worstLapTimeSec = null;
     this.lastLapTimeSec = null;
     this.currentLapCount = 0;
+    this.totalLapsCompleted = 0;
     if (resetBestLapCount) {
       this.bestLapCount = 0;
     }
@@ -107,11 +108,15 @@ export class RacingEnv {
     const bestLapTimeSec = Number(records.bestLapTimeSec);
     const worstLapTimeSec = Number(records.worstLapTimeSec);
     const bestLapCount = Number(records.bestLapCount);
+    const totalLapsCompleted = Number(records.totalLapsCompleted);
 
     this.bestLapTimeSec = Number.isFinite(bestLapTimeSec) && bestLapTimeSec > 0 ? bestLapTimeSec : null;
     this.worstLapTimeSec =
       Number.isFinite(worstLapTimeSec) && worstLapTimeSec > 0 ? worstLapTimeSec : null;
     this.bestLapCount = Number.isFinite(bestLapCount) ? Math.max(0, Math.floor(bestLapCount)) : 0;
+    this.totalLapsCompleted = Number.isFinite(totalLapsCompleted)
+      ? Math.max(0, Math.floor(totalLapsCompleted))
+      : this.totalLapsCompleted || 0;
   }
 
   updateConfig({ maxEpisodeSteps, actionSmoothing, rewardWeights }) {
@@ -307,6 +312,7 @@ export class RacingEnv {
         this.worstLapTimeSec = this.lapElapsedSec;
       }
       this.currentLapCount += 1;
+      this.totalLapsCompleted += 1;
       if (this.currentLapCount > this.bestLapCount) {
         this.bestLapCount = this.currentLapCount;
       }
@@ -362,7 +368,8 @@ export class RacingEnv {
       bestLapTimeSec: this.bestLapTimeSec,
       worstLapTimeSec: this.worstLapTimeSec,
       currentLapCount: this.currentLapCount || 0,
-      bestLapCount: this.bestLapCount || 0
+      bestLapCount: this.bestLapCount || 0,
+      totalLapsCompleted: this.totalLapsCompleted || 0
     };
   }
 }

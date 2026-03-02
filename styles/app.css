@@ -536,6 +536,26 @@ select:focus-visible {
   color: rgba(233, 242, 243, 0.82);
 }
 
+.saved-track-metrics {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.saved-track-metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  color: rgba(226, 236, 237, 0.86);
+}
+
+.saved-track-metric strong {
+  font-size: 0.74rem;
+  color: #f5f9f9;
+  font-variant-numeric: tabular-nums;
+}
+
 .saved-track-actions {
   display: flex;
   justify-content: space-between;
@@ -897,6 +917,33 @@ select:focus-visible {
 .field-stack {
   display: grid;
   gap: 0.25rem;
+}
+
+.racer-modal-meta {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.62);
+  border-radius: 0.58rem;
+  padding: 0.45rem 0.55rem;
+  display: grid;
+  gap: 0.26rem;
+}
+
+.racer-modal-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.racer-modal-meta-row strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme="dark"] .racer-modal-meta {
+  background: rgba(17, 22, 26, 0.72);
 }
 
 .field-stack label {

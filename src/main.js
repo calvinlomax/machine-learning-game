@@ -1,11 +1,11 @@
 import { RNG, normalizeSeed, randomSeed } from "./rng.js";
-import { generateTrack, generateTrackFromShape, WORLD_HEIGHT, WORLD_WIDTH } from "./trackgen.js?v=track-width-20260227";
-import { RacingEnv } from "./env.js";
+import { generateTrack, generateTrackFromShape, WORLD_HEIGHT, WORLD_WIDTH } from "./trackgen.js?v=track-metrics-20260227";
+import { RacingEnv } from "./env.js?v=track-metrics-20260227";
 import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=track-width-20260227";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=track-metrics-20260227";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
@@ -344,11 +344,17 @@ function sanitizeSavedTrack(entry, fallbackIndex) {
   const name = rawName || `Track ${seed}`;
   const createdAt = Number(entry.createdAt);
   const updatedAt = Number(entry.updatedAt);
+  const lengthMeters = Number(entry.lengthMeters);
+  const bestLapTimeSec = Number(entry.bestLapTimeSec);
+  const totalLapsCompleted = Number(entry.totalLapsCompleted);
 
   return {
     id: typeof entry.id === "string" && entry.id ? entry.id : `track-${fallbackIndex}-${Date.now()}`,
     name: name.slice(0, 64),
     seed,
+    lengthMeters: Number.isFinite(lengthMeters) && lengthMeters >= 0 ? lengthMeters : 0,
+    bestLapTimeSec: Number.isFinite(bestLapTimeSec) && bestLapTimeSec > 0 ? bestLapTimeSec : null,
+    totalLapsCompleted: Number.isFinite(totalLapsCompleted) ? Math.max(0, Math.floor(totalLapsCompleted)) : 0,
     createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
     updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now()
   };
@@ -718,8 +724,9 @@ async function handleNewTrackRequest() {
 
   if (result.action === "saveTrack") {
     const safeSeed = normalizeSeed(clampSeedInput(result.seed));
+    const trackMetrics = getTrackMetricsForSeed(safeSeed);
     const suggestedName = result.presetName || `Track ${safeSeed}`;
-    const chosenName = await ui.promptTrackName(suggestedName);
+    const chosenName = await ui.promptTrackName(suggestedName, trackMetrics);
     if (chosenName === null) {
       return;
     }
@@ -729,6 +736,9 @@ async function handleNewTrackRequest() {
       id: createSavedTrackId(existingIds),
       name: String(chosenName || suggestedName).slice(0, 64),
       seed: safeSeed,
+      lengthMeters: trackMetrics.lengthMeters,
+      bestLapTimeSec: trackMetrics.bestLapTimeSec,
+      totalLapsCompleted: trackMetrics.totalLapsCompleted,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -793,6 +803,35 @@ function getCurrentRacerMetrics() {
       Number.isFinite(renderState.worstLapTimeSec) && renderState.worstLapTimeSec > 0
         ? renderState.worstLapTimeSec
         : null
+  };
+}
+
+function getTrackMetricsForSeed(seed) {
+  const normalizedSeed = normalizeSeed(clampSeedInput(seed));
+  const isCurrentSeedTrack = trackSource.type === "seed" && Number(currentSeed) === normalizedSeed;
+
+  if (isCurrentSeedTrack) {
+    const renderState = env.getRenderState();
+    return {
+      lengthMeters: Math.max(0, Number(track?.totalLength) || 0),
+      bestLapTimeSec:
+        Number.isFinite(renderState.bestLapTimeSec) && renderState.bestLapTimeSec > 0
+          ? renderState.bestLapTimeSec
+          : null,
+      totalLapsCompleted: Math.max(0, Math.floor(Number(renderState.totalLapsCompleted) || 0))
+    };
+  }
+
+  const previewTrack = generateTrack(normalizedSeed, {
+    worldWidth: appSettings.worldWidth,
+    worldHeight: appSettings.worldHeight,
+    trackWidth: appSettings.trackWidth
+  });
+
+  return {
+    lengthMeters: Math.max(0, Number(previewTrack.totalLength) || 0),
+    bestLapTimeSec: null,
+    totalLapsCompleted: 0
   };
 }
 

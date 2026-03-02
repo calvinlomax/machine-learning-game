@@ -38,6 +38,14 @@ function formatReturn(value) {
   return formatNumber(value, 2);
 }
 
+function formatLapTimeOrDash(secondsValue) {
+  const value = Number(secondsValue);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "--";
+  }
+  return formatLapTime(value);
+}
+
 function sanitizeTeamName(value) {
   const text = String(value ?? "").trim();
   return text || "ML1 Academy";
@@ -304,6 +312,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     dialog: document.querySelector("#racer-modal-root .modal"),
     title: document.getElementById("racer-modal-title"),
     message: document.getElementById("racer-modal-message"),
+    meta: document.getElementById("racer-modal-meta"),
     nameInput: document.getElementById("racer-name-input"),
     carField: document.getElementById("racer-car-field"),
     carSelect: document.getElementById("racer-car-select"),
@@ -682,6 +691,28 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     seed.className = "saved-track-seed";
     seed.textContent = `Seed: ${savedTrack.seed}`;
 
+    const metrics = document.createElement("div");
+    metrics.className = "saved-track-metrics";
+    const metricRows = [
+      ["Length", `${Math.max(0, Math.round(Number(savedTrack.lengthMeters) || 0))} m`],
+      ["Best lap", formatLapTimeOrDash(savedTrack.bestLapTimeSec)],
+      ["Total laps", String(Math.max(0, Math.floor(Number(savedTrack.totalLapsCompleted) || 0)))]
+    ];
+
+    for (let i = 0; i < metricRows.length; i += 1) {
+      const [labelText, valueText] = metricRows[i];
+      const row = document.createElement("div");
+      row.className = "saved-track-metric";
+
+      const label = document.createElement("span");
+      label.textContent = labelText;
+
+      const value = document.createElement("strong");
+      value.textContent = valueText;
+      row.append(label, value);
+      metrics.appendChild(row);
+    }
+
     const actions = document.createElement("div");
     actions.className = "saved-track-actions";
 
@@ -698,7 +729,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     deployBtn.addEventListener("click", () => handlers.onDeploySavedTrack(savedTrack.id));
 
     actions.append(deleteBtn, deployBtn);
-    card.append(name, seed, actions);
+    card.append(name, seed, metrics, actions);
 
     return card;
   }
@@ -1101,6 +1132,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     message,
     submitText,
     nameValue = "",
+    details = [],
     showCarSelect = false,
     cars = [],
     selectedCarId = ""
@@ -1113,6 +1145,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
         "dialog",
         "title",
         "message",
+        "meta",
         "nameInput",
         "carField",
         "carSelect",
@@ -1120,7 +1153,11 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
         "saveBtn"
       ])
     ) {
-      const fallbackName = window.prompt(message || title || "Racer name");
+      const fallbackDetails = Array.isArray(details)
+        ? details.map((item) => `${item.label}: ${item.value}`).join("\n")
+        : "";
+      const fallbackPrompt = [message || title || "Racer name", fallbackDetails].filter(Boolean).join("\n");
+      const fallbackName = window.prompt(fallbackPrompt);
       if (fallbackName === null) {
         return Promise.resolve(null);
       }
@@ -1141,6 +1178,27 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     racerModal.message.textContent = message;
     racerModal.saveBtn.textContent = submitText;
     racerModal.nameInput.value = nameValue || "";
+    if (racerModal.meta) {
+      const safeDetails = Array.isArray(details) ? details.filter((item) => item && item.label) : [];
+      racerModal.meta.innerHTML = "";
+      if (!safeDetails.length) {
+        racerModal.meta.hidden = true;
+      } else {
+        racerModal.meta.hidden = false;
+        for (let i = 0; i < safeDetails.length; i += 1) {
+          const row = document.createElement("div");
+          row.className = "racer-modal-meta-row";
+
+          const label = document.createElement("span");
+          label.textContent = `${safeDetails[i].label}:`;
+
+          const value = document.createElement("strong");
+          value.textContent = String(safeDetails[i].value ?? "--");
+          row.append(label, value);
+          racerModal.meta.appendChild(row);
+        }
+      }
+    }
 
     if (showCarSelect) {
       racerModal.carField.hidden = false;
@@ -1245,12 +1303,29 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     });
   }
 
-  function promptTrackName(defaultName = "") {
+  function promptTrackName(defaultName = "", trackStats = null) {
+    const stats = trackStats && typeof trackStats === "object" ? trackStats : {};
+    const details = [
+      {
+        label: "Track length",
+        value: `${Math.max(0, Math.round(Number(stats.lengthMeters) || 0))} m`
+      },
+      {
+        label: "Best lap time",
+        value: formatLapTimeOrDash(stats.bestLapTimeSec)
+      },
+      {
+        label: "Total laps completed",
+        value: String(Math.max(0, Math.floor(Number(stats.totalLapsCompleted) || 0)))
+      }
+    ];
+
     return openRacerModal({
       title: "Save track",
-      message: "Name this track seed.",
+      message: "Name this track seed and review its metrics.",
       submitText: "Save track",
       nameValue: defaultName,
+      details,
       showCarSelect: false
     }).then((result) => {
       if (!result) {
