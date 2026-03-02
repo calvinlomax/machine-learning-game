@@ -26,7 +26,7 @@ import {
 const BASE_URL = import.meta.env?.BASE_URL ?? "/";
 const DEFAULT_TEAM_NAME = "ML1 Academy";
 const MAX_SAVED_RACERS = 4;
-const MAX_SAVED_TRACKS = 12;
+const MAX_SAVED_TRACKS = 8;
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
