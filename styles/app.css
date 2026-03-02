@@ -691,8 +691,9 @@ select:focus-visible {
 }
 
 .race-mode-shell {
-  width: min(1240px, 100%);
-  max-height: calc(100vh - 1.6rem);
+  width: min(1488px, calc(100vw - 0.6rem));
+  height: min(96vh, 980px);
+  max-height: min(96vh, 980px);
   overflow: hidden;
   background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
   border: 1px solid var(--line);
