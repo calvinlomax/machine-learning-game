@@ -256,27 +256,32 @@
           <button id="race-mode-track-btn" type="button">Choose Track</button>
           <button id="race-mode-deploy-btn" type="button">Deploy All Racers</button>
         </div>
-        <div class="race-canvas-frame">
-          <canvas id="race-canvas" width="900" height="600" aria-label="Race mode canvas"></canvas>
+        <div class="race-main-layout">
+          <div class="race-view-column">
+            <div class="race-canvas-frame">
+              <canvas id="race-canvas" width="900" height="600" aria-label="Race mode canvas"></canvas>
+            </div>
+            <div class="race-hud">
+              <div class="race-hud-item"><span>Race Time</span><strong id="race-stat-time">00:00:00</strong></div>
+              <div class="race-hud-item"><span>Leader</span><strong id="race-stat-leader">--</strong></div>
+              <div class="race-hud-item"><span>Leader Laps</span><strong id="race-stat-leader-laps">0</strong></div>
+              <div class="race-hud-item"><span>Best Lap</span><strong id="race-stat-best-lap">00:00:00</strong></div>
+              <div class="race-hud-item"><span>Track</span><strong id="race-stat-track">Monte Carlo</strong></div>
+            </div>
+          </div>
+          <section class="race-racers" aria-label="Race racers">
+            <h3>Saved Racers</h3>
+            <div id="race-racer-list" class="race-racer-list"></div>
+          </section>
         </div>
-        <div class="race-hud">
-          <div class="race-hud-item"><span>Race Time</span><strong id="race-stat-time">00:00:00</strong></div>
-          <div class="race-hud-item"><span>Leader</span><strong id="race-stat-leader">--</strong></div>
-          <div class="race-hud-item"><span>Leader Laps</span><strong id="race-stat-leader-laps">0</strong></div>
-          <div class="race-hud-item"><span>Best Lap</span><strong id="race-stat-best-lap">00:00:00</strong></div>
-          <div class="race-hud-item"><span>Track</span><strong id="race-stat-track">Monte Carlo</strong></div>
-        </div>
-        <section class="race-racers" aria-label="Race racers">
-          <h3>Saved Racers</h3>
-          <div id="race-racer-list" class="race-racer-list"></div>
-        </section>
       </section>
     </div>
 
     <div id="race-track-modal-root" class="modal-root" hidden>
       <div class="modal-backdrop"></div>
       <div class="modal race-track-modal" role="dialog" aria-modal="true" aria-labelledby="race-track-modal-title" tabindex="-1">
-        <h2 id="race-track-modal-title">Choose Preset Track</h2>
+        <h2 id="race-track-modal-title">Race Mode Track Picker</h2>
+        <p>This picker is only for Race Mode and does not change the training track.</p>
         <div id="race-track-preset-grid" class="track-preset-grid"></div>
         <div class="modal-actions">
           <button id="race-track-close-btn" type="button">Close</button>
@@ -284,6 +289,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=race-mode-20260302"></script>
+    <script type="module" src="./src/main.js?v=race-layout-20260302"></script>
   </body>
 </html>
