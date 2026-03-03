@@ -903,7 +903,7 @@ select:focus-visible {
   height: auto;
   max-height: min(62vh, 620px);
   display: block;
-  aspect-ratio: 3 / 2;
+  aspect-ratio: 4 / 3;
 }
 
 .race-hud {
