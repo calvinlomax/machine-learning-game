@@ -28,6 +28,7 @@ const BASE_URL = import.meta.env?.BASE_URL ?? "/";
 const DEFAULT_TEAM_NAME = "ML1 Academy";
 const MAX_SAVED_RACERS = 4;
 const MAX_SAVED_TRACKS = 8;
+const RACE_MODE_TRACK_WIDTH = 120;
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
@@ -279,7 +280,7 @@ let raceTrackLabel = TRACK_PRESETS[0]?.name || `Seed ${currentSeed}`;
 let raceTrack = generateTrack(TRACK_PRESETS[0]?.seed ?? currentSeed, {
   worldWidth: appSettings.worldWidth,
   worldHeight: appSettings.worldHeight,
-  trackWidth: appSettings.trackWidth
+  trackWidth: RACE_MODE_TRACK_WIDTH
 });
 
 const raceModeState = {
@@ -1232,7 +1233,7 @@ function applyRaceTrackPreset(presetId, options = {}) {
   raceTrack = generateTrack(chosenSeed, {
     worldWidth: appSettings.worldWidth,
     worldHeight: appSettings.worldHeight,
-    trackWidth: appSettings.trackWidth
+    trackWidth: RACE_MODE_TRACK_WIDTH
   });
 
   raceModeState.elapsedSec = 0;
@@ -1305,12 +1306,32 @@ function createRaceRacerCard(savedRacer) {
   metrics.append(lapsRow, progressRow, bestLapRow, episodesRow);
   card.appendChild(metrics);
 
+  const actions = document.createElement("div");
+  actions.className = "race-racer-actions";
+
+  const deployBtn = document.createElement("button");
+  deployBtn.type = "button";
+  deployBtn.className = "primary";
+  deployBtn.textContent = "Deploy";
+  deployBtn.addEventListener("click", () => deploySavedRaceParticipant(savedRacer.id));
+
+  const withdrawBtn = document.createElement("button");
+  withdrawBtn.type = "button";
+  withdrawBtn.className = "danger";
+  withdrawBtn.textContent = "Withdraw";
+  withdrawBtn.addEventListener("click", () => withdrawSavedRaceParticipant(savedRacer.id));
+
+  actions.append(deployBtn, withdrawBtn);
+  card.appendChild(actions);
+
   const refs = {
     status,
     laps: lapsRow.querySelector("strong"),
     progress: progressRow.querySelector("strong"),
     bestLap: bestLapRow.querySelector("strong"),
-    episodes: episodesRow.querySelector("strong")
+    episodes: episodesRow.querySelector("strong"),
+    deployBtn,
+    withdrawBtn
   };
 
   raceModeState.savedCardRefs.set(savedRacer.id, refs);
@@ -1334,6 +1355,8 @@ function updateRaceRacerCards() {
       refs.progress.textContent = "0.0%";
       refs.bestLap.textContent = formatLapClock(racer.metrics?.bestLapTimeSec || 0);
       refs.episodes.textContent = String(Math.max(1, Math.floor(Number(racer.metrics?.episodes) || 1)));
+      refs.deployBtn.disabled = false;
+      refs.withdrawBtn.disabled = true;
       continue;
     }
 
@@ -1342,6 +1365,8 @@ function updateRaceRacerCards() {
     refs.progress.textContent = `${(clamp(participant.progress, 0, 1) * 100).toFixed(1)}%`;
     refs.bestLap.textContent = formatLapClock(participant.bestLapTimeSec || 0);
     refs.episodes.textContent = String(Math.max(1, Math.floor(participant.episodeCount || 1)));
+    refs.deployBtn.disabled = true;
+    refs.withdrawBtn.disabled = false;
   }
 }
 
@@ -1616,6 +1641,45 @@ function deployRaceParticipants() {
   updateRaceNpcCards();
 }
 
+function deploySavedRaceParticipant(racerId) {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+
+  const savedRacer = savedRacers.find((item) => item.id === racerId);
+  if (!savedRacer) {
+    return;
+  }
+
+  if (raceModeState.participants.some((participant) => participant.id === racerId)) {
+    return;
+  }
+
+  const index = raceModeState.participants.length;
+  raceModeState.participants.push(createRaceParticipant(savedRacer, index));
+  updateRaceControlState();
+  updateRaceRacerCards();
+}
+
+function withdrawSavedRaceParticipant(racerId) {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+
+  const nextParticipants = raceModeState.participants.filter((participant) => participant.id !== racerId);
+  if (nextParticipants.length === raceModeState.participants.length) {
+    return;
+  }
+
+  raceModeState.participants = nextParticipants;
+  if (!raceModeState.participants.length) {
+    setRaceRunning(false);
+  }
+
+  updateRaceControlState();
+  updateRaceRacerCards();
+}
+
 function deployNpcRacer(npcId) {
   if (!raceModeState.active || raceModeState.modalOpen) {
     return;
@@ -1742,6 +1806,23 @@ function stepRaceParticipants() {
     participant.renderState = renderState;
 
     const envLapCount = Math.max(0, Math.floor(Number(renderState.currentLapCount) || 0));
+
+    if (
+      isNpcRaceParticipant(participant) &&
+      participant.level === 1 &&
+      (envLapCount > participant.lastEnvLapCount || Number(renderState.lapProgress) > 0.86)
+    ) {
+      participant.status = "Spinout";
+      participant.episodeCount += 1;
+      participant.laps = 0;
+      participant.observation = participant.env.resetEpisode(true);
+      participant.renderState = participant.env.getRenderState();
+      participant.lastEnvLapCount = 0;
+      participant.progress = 0;
+      participant.currentLapTimeSec = 0;
+      continue;
+    }
+
     if (envLapCount > participant.lastEnvLapCount) {
       participant.laps += envLapCount - participant.lastEnvLapCount;
     }
