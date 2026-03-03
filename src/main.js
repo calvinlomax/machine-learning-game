@@ -163,9 +163,10 @@ const raceModeElements = {
   root: document.getElementById("race-mode-root"),
   startBtn: document.getElementById("race-mode-start-btn"),
   trackBtn: document.getElementById("race-mode-track-btn"),
-  deployBtn: document.getElementById("race-mode-deploy-btn"),
+  chooseBtn: document.getElementById("race-mode-choose-btn"),
+  endBtn: document.getElementById("race-mode-end-btn"),
   exitBtn: document.getElementById("race-mode-exit-btn"),
-  npcList: document.getElementById("race-npc-list"),
+  placeList: document.getElementById("race-place-list"),
   racerList: document.getElementById("race-racer-list"),
   statTime: document.getElementById("race-stat-time"),
   statLeader: document.getElementById("race-stat-leader"),
@@ -179,6 +180,16 @@ const raceTrackModalElements = {
   presetGrid: document.getElementById("race-track-preset-grid"),
   closeBtn: document.getElementById("race-track-close-btn"),
   backdrop: document.querySelector("#race-track-modal-root .modal-backdrop")
+};
+
+const raceChooseModalElements = {
+  root: document.getElementById("race-choose-modal-root"),
+  dialog: document.querySelector("#race-choose-modal-root .modal"),
+  list: document.getElementById("race-choose-list"),
+  count: document.getElementById("race-choose-count"),
+  closeBtn: document.getElementById("race-choose-close-btn"),
+  applyBtn: document.getElementById("race-choose-apply-btn"),
+  backdrop: document.querySelector("#race-choose-modal-root .modal-backdrop")
 };
 
 const persistedSettings = loadAppSettings();
@@ -290,8 +301,12 @@ const raceModeState = {
   elapsedSec: 0,
   accumulatorMs: 0,
   modalOpen: false,
+  trackModalOpen: false,
+  chooseModalOpen: false,
+  targetLaps: 1,
+  chooserSelection: new Set(),
   savedCardRefs: new Map(),
-  npcCardRefs: new Map()
+  placeCardRefs: new Map()
 };
 
 function sanitizeSavedRacer(entry, fallbackIndex) {
@@ -571,9 +586,12 @@ function setTrackFromShape(shapePoints, { name = "Custom Shape" } = {}) {
     return false;
   }
 
+  const shapeSeed = normalizeSeed(randomSeed());
+  currentSeed = shapeSeed;
+
   trackSource = {
     type: "shape",
-    seed: currentSeed,
+    seed: shapeSeed,
     name,
     shapePointsNorm: normalized
   };
@@ -597,6 +615,7 @@ function handleEpisodeTermination() {
   }
 
   agent.onEpisodeEnd();
+  syncDeployedSavedRacerProgress();
   resetEpisode({ countAsNewEpisode: true });
 
   const forcedUpdate = agent.train(1);
@@ -697,17 +716,17 @@ function finishDrawMode() {
   }
 
   if (drawState.points.length < 8) {
+    cancelDrawMode();
     window.alert("Draw at least 8 points to build a valid shape track.");
     return;
   }
 
   const created = setTrackFromShape(drawState.points, { name: "Custom Shape" });
+  cancelDrawMode();
   if (!created) {
     window.alert("Could not create track from the drawn shape. Try drawing a longer loop.");
     return;
   }
-
-  cancelDrawMode();
 }
 
 canvas.style.touchAction = "none";
@@ -831,12 +850,14 @@ async function handleNewRacerRequest() {
     return;
   }
 
+  syncDeployedSavedRacerProgress();
   agent.resetModel();
   clearBestReturn();
   env.clearLapHistory({ resetBestLapCount: true });
   bestEpisodeReturn = Number.NEGATIVE_INFINITY;
   episodeNumber = 1;
   observation = env.resetEpisode(true);
+  currentCarId = DEFAULT_CAR_ID;
   currentDriverName = "Current Racer";
   deployedRacerId = null;
 }
@@ -913,6 +934,38 @@ function buildSavedRacerPayload(name, carId) {
     createdAt: Date.now(),
     updatedAt: Date.now()
   };
+}
+
+function syncDeployedSavedRacerProgress() {
+  if (!deployedRacerId) {
+    return;
+  }
+
+  const index = savedRacers.findIndex((item) => item.id === deployedRacerId);
+  if (index < 0) {
+    return;
+  }
+
+  const current = savedRacers[index];
+  const metrics = getCurrentRacerMetrics();
+
+  const updated = {
+    ...current,
+    carId: carById.has(currentCarId) ? currentCarId : current.carId,
+    hyperparams: cloneSerializable(hyperparams, { ...hyperparams }),
+    agentSnapshot: cloneSerializable(agent.exportSnapshot(), current.agentSnapshot),
+    metrics: cloneSerializable(
+      {
+        ...current.metrics,
+        ...metrics,
+        bestReturn: normalizeBestReturn(metrics.bestReturn)
+      },
+      metrics
+    ),
+    updatedAt: Date.now()
+  };
+
+  savedRacers = persistSavedRacers(savedRacers.map((item, itemIndex) => (itemIndex === index ? updated : item)));
 }
 
 function applySavedBestReturn(nextBestReturn) {
@@ -1222,6 +1275,23 @@ function getNpcParticipantId(npcId) {
   return `npc:${npcId}`;
 }
 
+function getSavedSelectionId(savedId) {
+  return `saved:${savedId}`;
+}
+
+function getNpcSelectionId(npcId) {
+  return `npc:${npcId}`;
+}
+
+function refreshRaceModalState() {
+  raceModeState.modalOpen = Boolean(raceModeState.trackModalOpen || raceModeState.chooseModalOpen);
+}
+
+function computeRaceTargetLaps(trackConfig) {
+  const length = Math.max(1, Number(trackConfig?.totalLength) || 1);
+  return Math.max(1, Math.ceil(14000 / length));
+}
+
 function applyRaceTrackPreset(presetId, options = {}) {
   const resetParticipants = options.resetParticipants !== false;
   const preset = getRacePresetById(presetId);
@@ -1235,6 +1305,7 @@ function applyRaceTrackPreset(presetId, options = {}) {
     worldHeight: appSettings.worldHeight,
     trackWidth: RACE_MODE_TRACK_WIDTH
   });
+  raceModeState.targetLaps = computeRaceTargetLaps(raceTrack);
 
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
@@ -1251,6 +1322,9 @@ function applyRaceTrackPreset(presetId, options = {}) {
       participant.currentLapTimeSec = 0;
       participant.bestLapTimeSec = null;
       participant.episodeCount = 1;
+      participant.finished = false;
+      participant.finishTimeSec = null;
+      participant.timeSinceLapSec = 0;
       participant.status = participant.kind === "npc" ? "Deployed" : "Ready";
     }
   }
@@ -1261,7 +1335,7 @@ function applyRaceTrackPreset(presetId, options = {}) {
 
   if (raceModeState.active) {
     updateRaceRacerCards();
-    updateRaceNpcCards();
+    renderRacePlaceList();
   }
 }
 
@@ -1351,7 +1425,7 @@ function updateRaceRacerCards() {
     const participant = participantsById.get(racer.id);
     if (!participant) {
       refs.status.textContent = "Not deployed";
-      refs.laps.textContent = "0";
+      refs.laps.textContent = `0/${raceModeState.targetLaps}`;
       refs.progress.textContent = "0.0%";
       refs.bestLap.textContent = formatLapClock(racer.metrics?.bestLapTimeSec || 0);
       refs.episodes.textContent = String(Math.max(1, Math.floor(Number(racer.metrics?.episodes) || 1)));
@@ -1361,7 +1435,7 @@ function updateRaceRacerCards() {
     }
 
     refs.status.textContent = participant.status;
-    refs.laps.textContent = String(Math.max(0, Math.floor(participant.laps)));
+    refs.laps.textContent = `${Math.max(0, Math.floor(participant.laps))}/${raceModeState.targetLaps}`;
     refs.progress.textContent = `${(clamp(participant.progress, 0, 1) * 100).toFixed(1)}%`;
     refs.bestLap.textContent = formatLapClock(participant.bestLapTimeSec || 0);
     refs.episodes.textContent = String(Math.max(1, Math.floor(participant.episodeCount || 1)));
@@ -1393,87 +1467,144 @@ function renderRaceRacerList() {
   updateRaceRacerCards();
 }
 
-function createRaceNpcCard(profile) {
-  const card = document.createElement("article");
-  card.className = "race-npc-card";
-  card.dataset.npcId = profile.id;
-
-  const head = document.createElement("div");
-  head.className = "race-npc-head";
-
-  const name = document.createElement("div");
-  name.className = "race-npc-name";
-  name.textContent = profile.name;
-
-  const level = document.createElement("div");
-  level.className = "race-npc-level";
-  level.textContent = `Lv ${profile.level} ${profile.tier}`;
-
-  head.append(name, level);
-  card.appendChild(head);
-
-  const statusRow = document.createElement("div");
-  statusRow.className = "race-npc-status-row";
-  statusRow.innerHTML = "<span>Status</span><strong>Available</strong>";
-  card.appendChild(statusRow);
-
-  const actions = document.createElement("div");
-  actions.className = "race-npc-actions";
-
-  const deployBtn = document.createElement("button");
-  deployBtn.type = "button";
-  deployBtn.className = "primary";
-  deployBtn.textContent = "Deploy";
-  deployBtn.addEventListener("click", () => deployNpcRacer(profile.id));
-
-  const withdrawBtn = document.createElement("button");
-  withdrawBtn.type = "button";
-  withdrawBtn.className = "danger";
-  withdrawBtn.textContent = "Withdraw";
-  withdrawBtn.addEventListener("click", () => withdrawNpcRacer(profile.id));
-
-  actions.append(deployBtn, withdrawBtn);
-  card.appendChild(actions);
-
-  raceModeState.npcCardRefs.set(profile.id, {
-    status: statusRow.querySelector("strong"),
-    deployBtn,
-    withdrawBtn
-  });
-
-  return card;
+function getSortedRaceParticipants() {
+  return raceModeState.participants
+    .slice()
+    .sort((a, b) => {
+      if (a.laps !== b.laps) {
+        return b.laps - a.laps;
+      }
+      if (a.progress !== b.progress) {
+        return b.progress - a.progress;
+      }
+      if (a.finished && b.finished) {
+        return (a.finishTimeSec || 0) - (b.finishTimeSec || 0);
+      }
+      return (a.name || "").localeCompare(b.name || "");
+    });
 }
 
-function renderRaceNpcList() {
-  if (!raceModeElements.npcList) {
+function renderRacePlaceList() {
+  if (!raceModeElements.placeList) {
     return;
   }
 
-  raceModeElements.npcList.innerHTML = "";
-  raceModeState.npcCardRefs.clear();
+  raceModeElements.placeList.innerHTML = "";
+  raceModeState.placeCardRefs.clear();
 
-  for (let i = 0; i < NPC_PROFILES.length; i += 1) {
-    raceModeElements.npcList.appendChild(createRaceNpcCard(NPC_PROFILES[i]));
+  const ordered = getSortedRaceParticipants();
+  if (!ordered.length) {
+    const empty = document.createElement("div");
+    empty.className = "race-racer-empty";
+    empty.textContent = "Choose racers to start a race.";
+    raceModeElements.placeList.appendChild(empty);
+    return;
   }
 
-  updateRaceNpcCards();
+  for (let i = 0; i < ordered.length; i += 1) {
+    const participant = ordered[i];
+    const card = document.createElement("article");
+    card.className = "race-place-card";
+
+    const head = document.createElement("div");
+    head.className = "race-place-head";
+
+    const name = document.createElement("div");
+    name.className = "race-place-name";
+    name.textContent = participant.name;
+
+    const rank = document.createElement("div");
+    rank.className = "race-place-rank";
+    rank.textContent = `${i + 1}${i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"}`;
+
+    head.append(name, rank);
+
+    const laps = document.createElement("div");
+    laps.className = "race-place-laps";
+    laps.innerHTML = `<span>Laps</span><strong>${Math.max(0, Math.floor(participant.laps))}/${raceModeState.targetLaps}</strong>`;
+
+    card.append(head, laps);
+    raceModeElements.placeList.appendChild(card);
+  }
 }
 
-function updateRaceNpcCards() {
-  const participantIds = new Set(raceModeState.participants.map((participant) => participant.id));
+function buildRaceChooserEntries() {
+  const entries = [];
+
+  for (let i = 0; i < savedRacers.length; i += 1) {
+    const racer = savedRacers[i];
+    entries.push({
+      id: getSavedSelectionId(racer.id),
+      label: racer.name || "Unnamed Saved Racer",
+      meta: "Saved Racer"
+    });
+  }
 
   for (let i = 0; i < NPC_PROFILES.length; i += 1) {
     const npc = NPC_PROFILES[i];
-    const refs = raceModeState.npcCardRefs.get(npc.id);
-    if (!refs) {
+    entries.push({
+      id: getNpcSelectionId(npc.id),
+      label: `${npc.name} (NPC)`,
+      meta: `NPC Lv ${npc.level} ${npc.tier}`
+    });
+  }
+
+  return entries;
+}
+
+function getCurrentRaceSelectionIds() {
+  const selected = new Set();
+  for (let i = 0; i < raceModeState.participants.length; i += 1) {
+    const participant = raceModeState.participants[i];
+    if (isSavedRaceParticipant(participant)) {
+      selected.add(getSavedSelectionId(participant.id));
+    } else if (isNpcRaceParticipant(participant)) {
+      selected.add(getNpcSelectionId(participant.npcProfileId));
+    }
+  }
+  return selected;
+}
+
+function updateRaceChooserCount() {
+  if (!raceChooseModalElements.count) {
+    return;
+  }
+  raceChooseModalElements.count.textContent = `${raceModeState.chooserSelection.size} / 5 selected`;
+}
+
+function applyRaceSelection(selectedIds) {
+  const nextParticipants = [];
+  const safeSelection = Array.isArray(selectedIds) ? selectedIds.slice(0, 5) : [];
+
+  for (let i = 0; i < safeSelection.length; i += 1) {
+    const id = safeSelection[i];
+    if (id.startsWith("saved:")) {
+      const savedId = id.slice("saved:".length);
+      const savedRacer = savedRacers.find((racer) => racer.id === savedId);
+      if (!savedRacer) {
+        continue;
+      }
+      nextParticipants.push(createRaceParticipant(savedRacer, nextParticipants.length));
       continue;
     }
 
-    const isDeployed = participantIds.has(getNpcParticipantId(npc.id));
-    refs.status.textContent = isDeployed ? "Deployed" : "Available";
-    refs.deployBtn.disabled = isDeployed;
-    refs.withdrawBtn.disabled = !isDeployed;
+    if (id.startsWith("npc:")) {
+      const npcId = id.slice("npc:".length);
+      const npcProfile = NPC_PROFILES.find((npc) => npc.id === npcId);
+      if (!npcProfile) {
+        continue;
+      }
+      nextParticipants.push(createNpcRaceParticipant(npcProfile, nextParticipants.length));
+    }
   }
+
+  raceModeState.participants = nextParticipants;
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+  setRaceRunning(false);
+  updateRaceControlState();
+  updateRaceRacerCards();
+  renderRacePlaceList();
 }
 
 function syncRaceModeSavedRacers(nextSavedRacers) {
@@ -1498,9 +1629,9 @@ function syncRaceModeSavedRacers(nextSavedRacers) {
 
   if (raceModeState.active) {
     renderRaceRacerList();
-    renderRaceNpcList();
     updateRaceControlState();
     updateRaceHud();
+    renderRacePlaceList();
   }
 }
 
@@ -1563,6 +1694,9 @@ function createRaceParticipant(savedRacer, index) {
     currentLapTimeSec: Number(renderState.thisLapTimeSec) || 0,
     bestLapTimeSec: Number.isFinite(bestLapTime) && bestLapTime > 0 ? bestLapTime : null,
     episodeCount: 1,
+    finished: false,
+    finishTimeSec: null,
+    timeSinceLapSec: 0,
     status: "Ready"
   };
 }
@@ -1593,6 +1727,7 @@ function createNpcRaceParticipant(profile, index) {
   return {
     id: baseId,
     kind: "npc",
+    npcProfileId: profile.id,
     name: `${profile.name} (NPC)`,
     level: profile.level,
     tier: profile.tier,
@@ -1608,6 +1743,9 @@ function createNpcRaceParticipant(profile, index) {
     currentLapTimeSec: Number(renderState.thisLapTimeSec) || 0,
     bestLapTimeSec: Number.isFinite(bestLapTime) && bestLapTime > 0 ? bestLapTime : null,
     episodeCount: 1,
+    finished: false,
+    finishTimeSec: null,
+    timeSinceLapSec: 0,
     status: "Deployed"
   };
 }
@@ -1621,8 +1759,9 @@ function setRaceRunning(nextRunning) {
 }
 
 function updateRaceControlState() {
-  if (raceModeElements.deployBtn) {
-    raceModeElements.deployBtn.disabled = savedRacers.length === 0;
+  const chooserHasEntries = savedRacers.length + NPC_PROFILES.length > 0;
+  if (raceModeElements.chooseBtn) {
+    raceModeElements.chooseBtn.disabled = !chooserHasEntries;
   }
   if (raceModeElements.startBtn) {
     raceModeElements.startBtn.disabled = raceModeState.participants.length === 0;
@@ -1630,15 +1769,17 @@ function updateRaceControlState() {
 }
 
 function deployRaceParticipants() {
-  const npcParticipants = raceModeState.participants.filter(isNpcRaceParticipant);
-  const savedParticipants = savedRacers.map((savedRacer, index) => createRaceParticipant(savedRacer, index));
-  raceModeState.participants = [...savedParticipants, ...npcParticipants];
+  const selectedIds = savedRacers
+    .map((saved) => getSavedSelectionId(saved.id))
+    .concat(NPC_PROFILES.slice(0, 1).map((npc) => getNpcSelectionId(npc.id)))
+    .slice(0, 5);
+  applyRaceSelection(selectedIds);
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
   setRaceRunning(false);
   updateRaceControlState();
   updateRaceRacerCards();
-  updateRaceNpcCards();
+  renderRacePlaceList();
 }
 
 function deploySavedRaceParticipant(racerId) {
@@ -1659,6 +1800,7 @@ function deploySavedRaceParticipant(racerId) {
   raceModeState.participants.push(createRaceParticipant(savedRacer, index));
   updateRaceControlState();
   updateRaceRacerCards();
+  renderRacePlaceList();
 }
 
 function withdrawSavedRaceParticipant(racerId) {
@@ -1678,6 +1820,7 @@ function withdrawSavedRaceParticipant(racerId) {
 
   updateRaceControlState();
   updateRaceRacerCards();
+  renderRacePlaceList();
 }
 
 function deployNpcRacer(npcId) {
@@ -1698,7 +1841,8 @@ function deployNpcRacer(npcId) {
   const index = raceModeState.participants.length;
   raceModeState.participants.push(createNpcRaceParticipant(profile, index));
   updateRaceControlState();
-  updateRaceNpcCards();
+  renderRacePlaceList();
+  updateRaceRacerCards();
 }
 
 function withdrawNpcRacer(npcId) {
@@ -1718,7 +1862,8 @@ function withdrawNpcRacer(npcId) {
   }
 
   updateRaceControlState();
-  updateRaceNpcCards();
+  renderRacePlaceList();
+  updateRaceRacerCards();
 }
 
 function pickRaceLeader() {
@@ -1780,7 +1925,9 @@ function updateRaceHud() {
     raceModeElements.statLeader.textContent = leader ? leader.name : "--";
   }
   if (raceModeElements.statLeaderLaps) {
-    raceModeElements.statLeaderLaps.textContent = leader ? String(Math.max(0, Math.floor(leader.laps))) : "0";
+    raceModeElements.statLeaderLaps.textContent = leader
+      ? `${Math.max(0, Math.floor(leader.laps))}/${raceModeState.targetLaps}`
+      : `0/${raceModeState.targetLaps}`;
   }
   if (raceModeElements.statBestLap) {
     raceModeElements.statBestLap.textContent = formatLapClock(findRaceBestLap() || 0);
@@ -1790,9 +1937,25 @@ function updateRaceHud() {
   }
 }
 
+function endRace() {
+  setRaceRunning(false);
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+  applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: true });
+  updateRaceControlState();
+  updateRaceRacerCards();
+  renderRacePlaceList();
+}
+
 function stepRaceParticipants() {
   for (let i = 0; i < raceModeState.participants.length; i += 1) {
     const participant = raceModeState.participants[i];
+    if (participant.finished) {
+      participant.status = "Finished";
+      continue;
+    }
+    participant.timeSinceLapSec = (participant.timeSinceLapSec || 0) + env.dt;
+
     let actionIndex = 4;
     if (isSavedRaceParticipant(participant)) {
       actionIndex = participant.agent.actGreedy(participant.observation);
@@ -1825,7 +1988,51 @@ function stepRaceParticipants() {
 
     if (envLapCount > participant.lastEnvLapCount) {
       participant.laps += envLapCount - participant.lastEnvLapCount;
+      participant.lastEnvLapCount = envLapCount;
+      participant.timeSinceLapSec = 0;
+
+      if (participant.laps >= raceModeState.targetLaps) {
+        participant.finished = true;
+        participant.finishTimeSec = raceModeState.elapsedSec;
+        participant.status = "Finished";
+        continue;
+      }
+
+      // Reset per-lap to avoid episode caps for non-stuck drivers.
+      participant.status = "Lap reset";
+      participant.episodeCount += 1;
+      participant.observation = participant.env.resetEpisode(true);
+      participant.renderState = participant.env.getRenderState();
+      participant.lastEnvLapCount = 0;
+      participant.progress = 0;
+      participant.currentLapTimeSec = 0;
+      continue;
     }
+
+    if (isNpcRaceParticipant(participant) && participant.level >= 2) {
+      const fallbackLapWindow = 42 - participant.level * 4.5;
+      if (participant.timeSinceLapSec >= fallbackLapWindow) {
+        participant.laps += 1;
+        participant.timeSinceLapSec = 0;
+
+        if (participant.laps >= raceModeState.targetLaps) {
+          participant.finished = true;
+          participant.finishTimeSec = raceModeState.elapsedSec;
+          participant.status = "Finished";
+          continue;
+        }
+
+        participant.status = "Lap reset";
+        participant.episodeCount += 1;
+        participant.observation = participant.env.resetEpisode(true);
+        participant.renderState = participant.env.getRenderState();
+        participant.lastEnvLapCount = 0;
+        participant.progress = 0;
+        participant.currentLapTimeSec = 0;
+        continue;
+      }
+    }
+
     participant.lastEnvLapCount = envLapCount;
     participant.progress = clamp(Number(renderState.lapProgress) || 0, 0, 1);
     participant.currentLapTimeSec = Number(renderState.thisLapTimeSec) || 0;
@@ -1848,6 +2055,14 @@ function stepRaceParticipants() {
     } else {
       participant.status = "Paused";
     }
+  }
+
+  if (
+    raceModeState.running &&
+    raceModeState.participants.length > 0 &&
+    raceModeState.participants.every((participant) => participant.finished)
+  ) {
+    endRace();
   }
 }
 
@@ -1881,14 +2096,15 @@ function renderRaceFrame() {
 
   updateRaceHud();
   updateRaceRacerCards();
-  updateRaceNpcCards();
+  renderRacePlaceList();
 }
 
 function closeRaceTrackModal() {
-  if (!raceModeState.modalOpen || !raceTrackModalElements.root) {
+  if (!raceModeState.trackModalOpen || !raceTrackModalElements.root) {
     return;
   }
-  raceModeState.modalOpen = false;
+  raceModeState.trackModalOpen = false;
+  refreshRaceModalState();
   raceTrackModalElements.root.hidden = true;
 }
 
@@ -1916,12 +2132,103 @@ function openRaceTrackModal() {
     raceTrackModalElements.presetGrid.appendChild(button);
   }
 
-  raceModeState.modalOpen = true;
+  raceModeState.trackModalOpen = true;
+  refreshRaceModalState();
   raceTrackModalElements.root.hidden = false;
 
   requestAnimationFrame(() => {
     const first = raceTrackModalElements.presetGrid.querySelector("button");
     (first || raceTrackModalElements.closeBtn)?.focus();
+  });
+}
+
+function closeRaceChooseModal(applySelection = false) {
+  if (!raceModeState.chooseModalOpen || !raceChooseModalElements.root) {
+    return;
+  }
+
+  if (applySelection && raceChooseModalElements.list) {
+    const selected = Array.from(raceChooseModalElements.list.querySelectorAll("input:checked"))
+      .map((input) => input.value)
+      .slice(0, 5);
+    applyRaceSelection(selected);
+  }
+
+  raceModeState.chooseModalOpen = false;
+  refreshRaceModalState();
+  raceChooseModalElements.root.hidden = true;
+}
+
+function openRaceChooseModal() {
+  if (
+    !raceModeState.active ||
+    raceModeState.modalOpen ||
+    !raceChooseModalElements.root ||
+    !raceChooseModalElements.list
+  ) {
+    return;
+  }
+
+  raceModeState.chooserSelection = getCurrentRaceSelectionIds();
+  while (raceModeState.chooserSelection.size > 5) {
+    const first = raceModeState.chooserSelection.values().next().value;
+    raceModeState.chooserSelection.delete(first);
+  }
+
+  const entries = buildRaceChooserEntries();
+  raceChooseModalElements.list.innerHTML = "";
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const entry = entries[i];
+    const item = document.createElement("div");
+    item.className = "race-choose-item";
+
+    const label = document.createElement("label");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = entry.id;
+    checkbox.checked = raceModeState.chooserSelection.has(entry.id);
+
+    const text = document.createElement("span");
+    text.textContent = entry.label;
+
+    const meta = document.createElement("small");
+    meta.textContent = entry.meta;
+
+    label.append(checkbox, text);
+    item.append(label, meta);
+    raceChooseModalElements.list.appendChild(item);
+
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) {
+        if (raceModeState.chooserSelection.size >= 5) {
+          checkbox.checked = false;
+          return;
+        }
+        raceModeState.chooserSelection.add(entry.id);
+      } else {
+        raceModeState.chooserSelection.delete(entry.id);
+      }
+
+      updateRaceChooserCount();
+      if (raceChooseModalElements.applyBtn) {
+        raceChooseModalElements.applyBtn.disabled = raceModeState.chooserSelection.size === 0;
+      }
+    });
+  }
+
+  updateRaceChooserCount();
+  if (raceChooseModalElements.applyBtn) {
+    raceChooseModalElements.applyBtn.disabled = raceModeState.chooserSelection.size === 0;
+  }
+
+  raceModeState.chooseModalOpen = true;
+  refreshRaceModalState();
+  raceChooseModalElements.root.hidden = false;
+
+  requestAnimationFrame(() => {
+    const first = raceChooseModalElements.list.querySelector("input");
+    (first || raceChooseModalElements.closeBtn || raceChooseModalElements.applyBtn)?.focus();
   });
 }
 
@@ -1940,10 +2247,12 @@ function openRaceMode() {
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
   raceModeState.participants = [];
+  raceModeState.trackModalOpen = false;
+  raceModeState.chooseModalOpen = false;
+  refreshRaceModalState();
 
   setRaceRunning(false);
   applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: false });
-  renderRaceNpcList();
   renderRaceRacerList();
   updateRaceControlState();
   renderRaceFrame();
@@ -1959,6 +2268,7 @@ function closeRaceMode() {
   }
 
   closeRaceTrackModal();
+  closeRaceChooseModal();
   raceModeState.active = false;
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
@@ -2122,11 +2432,11 @@ raceModeElements.startBtn?.addEventListener("click", () => {
   setRaceRunning(!raceModeState.running);
 });
 
-raceModeElements.deployBtn?.addEventListener("click", () => {
+raceModeElements.chooseBtn?.addEventListener("click", () => {
   if (!raceModeState.active || raceModeState.modalOpen) {
     return;
   }
-  deployRaceParticipants();
+  openRaceChooseModal();
 });
 
 raceModeElements.trackBtn?.addEventListener("click", () => {
@@ -2140,6 +2450,13 @@ raceModeElements.exitBtn?.addEventListener("click", () => {
   closeRaceMode();
 });
 
+raceModeElements.endBtn?.addEventListener("click", () => {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+  endRace();
+});
+
 raceTrackModalElements.closeBtn?.addEventListener("click", () => {
   closeRaceTrackModal();
 });
@@ -2148,14 +2465,30 @@ raceTrackModalElements.backdrop?.addEventListener("click", () => {
   closeRaceTrackModal();
 });
 
+raceChooseModalElements.closeBtn?.addEventListener("click", () => {
+  closeRaceChooseModal(false);
+});
+
+raceChooseModalElements.applyBtn?.addEventListener("click", () => {
+  closeRaceChooseModal(true);
+});
+
+raceChooseModalElements.backdrop?.addEventListener("click", () => {
+  closeRaceChooseModal(false);
+});
+
 document.addEventListener("keydown", (event) => {
-  if (!raceModeState.modalOpen || !raceTrackModalElements.root || raceTrackModalElements.root.hidden) {
+  if (!raceModeState.modalOpen) {
     return;
   }
 
   if (event.key === "Escape") {
     event.preventDefault();
-    closeRaceTrackModal();
+    if (raceModeState.trackModalOpen) {
+      closeRaceTrackModal();
+    } else if (raceModeState.chooseModalOpen) {
+      closeRaceChooseModal(false);
+    }
     return;
   }
 
@@ -2163,7 +2496,9 @@ document.addEventListener("keydown", (event) => {
     return;
   }
 
-  const dialog = raceTrackModalElements.root.querySelector(".modal");
+  const dialog = raceModeState.trackModalOpen
+    ? raceTrackModalElements.root?.querySelector(".modal")
+    : raceChooseModalElements.dialog;
   const focusable = getFocusableElements(dialog);
   if (!focusable.length) {
     return;

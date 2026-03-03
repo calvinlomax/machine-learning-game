@@ -254,12 +254,13 @@
         <div class="race-mode-controls">
           <button id="race-mode-start-btn" class="primary" type="button">Start</button>
           <button id="race-mode-track-btn" type="button">Choose Track</button>
-          <button id="race-mode-deploy-btn" type="button">Deploy All Racers</button>
+          <button id="race-mode-choose-btn" type="button">Choose Racers</button>
+          <button id="race-mode-end-btn" class="danger" type="button">End Race</button>
         </div>
         <div class="race-main-layout">
-          <section class="race-npcs" aria-label="NPC racers">
-            <h3>NPC Rivals</h3>
-            <div id="race-npc-list" class="race-npc-list"></div>
+          <section class="race-places" aria-label="Race order">
+            <h3>Race Order</h3>
+            <div id="race-place-list" class="race-place-list"></div>
           </section>
           <div class="race-view-column">
             <div class="race-canvas-frame">
@@ -293,6 +294,22 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=race-npc-tune-20260302"></script>
+    <div id="race-choose-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal race-choose-modal" role="dialog" aria-modal="true" aria-labelledby="race-choose-modal-title" tabindex="-1">
+        <h2 id="race-choose-modal-title">Choose Racers</h2>
+        <p>Select up to 5 racers from saved racers and NPC rivals.</p>
+        <div id="race-choose-list" class="race-choose-list"></div>
+        <div class="race-choose-foot">
+          <span id="race-choose-count">0 / 5 selected</span>
+        </div>
+        <div class="modal-actions">
+          <button id="race-choose-close-btn" type="button">Cancel</button>
+          <button id="race-choose-apply-btn" class="primary" type="button">Apply</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js?v=race-smallfix-20260302"></script>
   </body>
 </html>

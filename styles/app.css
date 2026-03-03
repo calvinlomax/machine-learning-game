@@ -721,6 +721,12 @@ select:focus-visible {
   gap: 0.45rem;
 }
 
+.race-mode-controls button {
+  min-height: 1.8rem;
+  padding: 0.24rem 0.52rem;
+  font-size: 0.78rem;
+}
+
 .race-main-layout {
   min-height: 0;
   display: grid;
@@ -729,7 +735,7 @@ select:focus-visible {
   align-items: start;
 }
 
-.race-npcs,
+.race-places,
 .race-view-column {
   min-width: 0;
 }
@@ -739,7 +745,7 @@ select:focus-visible {
   gap: 0.45rem;
 }
 
-.race-npcs,
+.race-places,
 .race-racers {
   min-height: 0;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -749,7 +755,7 @@ select:focus-visible {
   overflow: auto;
 }
 
-.race-npcs h3,
+.race-places h3,
 .race-racers h3 {
   color: #f1f5f5;
   font-size: 0.84rem;
@@ -757,14 +763,14 @@ select:focus-visible {
   margin-bottom: 0.4rem;
 }
 
-.race-npc-list,
+.race-place-list,
 .race-racer-list {
   display: grid;
   gap: 0.45rem;
   grid-template-columns: 1fr;
 }
 
-.race-npc-card,
+.race-place-card,
 .race-racer-card {
   background: rgba(8, 15, 17, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -775,7 +781,7 @@ select:focus-visible {
   gap: 0.35rem;
 }
 
-.race-npc-head,
+.race-place-head,
 .race-racer-head {
   display: flex;
   justify-content: space-between;
@@ -783,31 +789,19 @@ select:focus-visible {
   gap: 0.45rem;
 }
 
-.race-npc-name,
+.race-place-name,
 .race-racer-name {
   font-size: 0.82rem;
   font-weight: 650;
 }
 
-.race-npc-level,
+.race-place-rank,
 .race-racer-status {
   font-size: 0.68rem;
   color: rgba(226, 236, 237, 0.82);
 }
 
-.race-npc-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.4rem;
-}
-
-.race-npc-actions button {
-  min-width: 72px;
-  padding: 0.26rem 0.4rem;
-  font-size: 0.7rem;
-}
-
-.race-npc-status-row {
+.race-place-laps {
   display: flex;
   justify-content: space-between;
   gap: 0.35rem;
@@ -815,7 +809,7 @@ select:focus-visible {
   color: rgba(233, 242, 243, 0.85);
 }
 
-.race-npc-status-row strong {
+.race-place-laps strong {
   font-size: 0.72rem;
   color: #f5f9f9;
 }
@@ -905,9 +899,48 @@ select:focus-visible {
   font-size: 0.7rem;
 }
 
-.race-track-modal {
+.race-track-modal,
+.race-choose-modal {
   width: min(94vw, 520px);
 }
+
+.race-choose-list {
+  display: grid;
+  gap: 0.4rem;
+  max-height: min(52vh, 440px);
+  overflow: auto;
+}
+
+.race-choose-item {
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  background: var(--surface);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.42rem 0.5rem;
+}
+
+.race-choose-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.race-choose-item small {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.race-choose-foot {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 
 #race-track-modal-root {
   z-index: 80;
@@ -915,6 +948,14 @@ select:focus-visible {
 
 #race-track-modal-root .modal-backdrop {
   background: rgba(4, 9, 12, 0.7);
+}
+
+#race-choose-modal-root {
+  z-index: 82;
+}
+
+#race-choose-modal-root .modal-backdrop {
+  background: rgba(4, 9, 12, 0.74);
 }
 
 .modal-backdrop {
@@ -1259,7 +1300,7 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
 
-  .race-npcs,
+  .race-places,
   .race-racers {
     overflow: visible;
     max-height: none;
