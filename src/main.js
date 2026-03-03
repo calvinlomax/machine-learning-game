@@ -33,8 +33,8 @@ const RACE_WORLD_HEIGHT = 900;
 const RACE_MODE_TRACK_WIDTH = 120;
 const RACE_MAX_EPISODE_STEPS = 500000;
 const AUTO_TRAIN_SPEED = 25;
-const AUTO_TRAIN_STEP_LIMIT = 3000;
-const AUTO_TRAIN_EPISODE_LIMIT = 500;
+const AUTO_TRAIN_SESSION_EPISODE_LIMIT = 3000;
+const AUTO_TRAIN_EPISODE_LIMIT = 350;
 const AUTO_TRAIN_TWO_LAP_TARGET = 2;
 const AUTO_TRAIN_STREAK_LIMIT = 3;
 const AUTO_TRAIN_PRESET_NAME = "AutoTrain Racer";
@@ -297,7 +297,7 @@ let deployedRacerId = null;
 let trainingSpeedMultiplier = appSettings.trainingSpeed;
 const autoTrainState = {
   enabled: false,
-  stepsSinceEnabled: 0,
+  episodesSinceEnabled: 0,
   episodesOnTrack: 0,
   consecutiveTwoLapEpisodes: 0,
   trackKey: ""
@@ -565,7 +565,7 @@ function resetAutoTrainTrackProgress() {
 
 function setAutoTrainEnabled(enabled) {
   autoTrainState.enabled = Boolean(enabled);
-  autoTrainState.stepsSinceEnabled = 0;
+  autoTrainState.episodesSinceEnabled = 0;
   if (autoTrainState.enabled) {
     trainingSpeedMultiplier = AUTO_TRAIN_SPEED;
     ui.setTrainingSpeed(AUTO_TRAIN_SPEED, false);
@@ -623,13 +623,13 @@ function saveAutoTrainRacerPreset() {
   savedRacers = persistSavedRacers([...savedRacers, payload]);
 }
 
-function maybeFinalizeAutoTrainByStepLimit() {
+function maybeFinalizeAutoTrainByEpisodeLimit() {
   if (!autoTrainState.enabled) {
     return false;
   }
 
-  autoTrainState.stepsSinceEnabled += 1;
-  if (autoTrainState.stepsSinceEnabled < AUTO_TRAIN_STEP_LIMIT) {
+  autoTrainState.episodesSinceEnabled += 1;
+  if (autoTrainState.episodesSinceEnabled < AUTO_TRAIN_SESSION_EPISODE_LIMIT) {
     return false;
   }
 
@@ -753,6 +753,9 @@ function handleEpisodeTermination() {
 
   agent.onEpisodeEnd();
   syncDeployedSavedRacerProgress();
+  if (maybeFinalizeAutoTrainByEpisodeLimit()) {
+    return;
+  }
   maybeRotateAutoTrainTrack(completedLapCount);
   resetEpisode({ countAsNewEpisode: true });
 
@@ -784,8 +787,6 @@ function runOneStep() {
   if (transition.done) {
     handleEpisodeTermination();
   }
-
-  maybeFinalizeAutoTrainByStepLimit();
 }
 
 function canvasEventToWorldPoint(event) {
