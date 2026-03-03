@@ -4,8 +4,7 @@ const KEYS = {
   savedRacers: "ml-racer-saved-racers-v1",
   savedTracks: "ml-racer-saved-tracks-v1",
   teamName: "ml-racer-team-name-v1",
-  appSettings: "ml-racer-app-settings-v1",
-  npcUnlockLevel: "ml-racer-npc-unlock-level-v1"
+  appSettings: "ml-racer-app-settings-v1"
 };
 
 function getStorage() {
@@ -197,33 +196,4 @@ export function saveAppSettings(settings) {
 
   const safe = settings && typeof settings === "object" ? settings : {};
   storage.setItem(KEYS.appSettings, JSON.stringify(safe));
-}
-
-export function loadNpcUnlockLevel() {
-  const storage = getStorage();
-  if (!storage) {
-    return null;
-  }
-
-  const raw = storage.getItem(KEYS.npcUnlockLevel);
-  if (raw === null) {
-    return null;
-  }
-
-  const value = Number(raw);
-  return Number.isFinite(value) ? Math.floor(value) : null;
-}
-
-export function saveNpcUnlockLevel(level) {
-  const storage = getStorage();
-  if (!storage) {
-    return;
-  }
-
-  const value = Math.floor(Number(level));
-  if (!Number.isFinite(value) || value < 1) {
-    return;
-  }
-
-  storage.setItem(KEYS.npcUnlockLevel, String(value));
 }

@@ -861,10 +861,43 @@ select:focus-visible {
   font-weight: 650;
 }
 
+.race-name-saved {
+  color: #dcffe6;
+  text-shadow: 0 0 7px rgba(80, 255, 120, 0.26);
+}
+
+.race-name-npc {
+  color: #ffd2d2;
+  text-shadow: 0 0 7px rgba(255, 96, 96, 0.24);
+}
+
 .race-place-rank,
 .race-racer-status {
   font-size: 0.68rem;
   color: rgba(226, 236, 237, 0.82);
+}
+
+.race-place-rank--1 {
+  color: #ffd64d;
+  font-weight: 800;
+  text-shadow: 0 0 9px rgba(255, 214, 77, 0.33);
+}
+
+.race-place-rank--2 {
+  color: #d9e2ef;
+  font-weight: 780;
+  text-shadow: 0 0 8px rgba(217, 226, 239, 0.28);
+}
+
+.race-place-rank--3 {
+  color: #d89054;
+  font-weight: 760;
+  text-shadow: 0 0 8px rgba(216, 144, 84, 0.28);
+}
+
+.race-place-rank--other {
+  color: #a6afb9;
+  font-weight: 720;
 }
 
 .race-place-laps {
@@ -970,6 +1003,34 @@ select:focus-visible {
   width: min(94vw, 520px);
 }
 
+.race-result-modal {
+  width: min(92vw, 420px);
+  text-align: center;
+}
+
+.race-result-modal h2 {
+  font-size: 1.35rem;
+}
+
+.race-result-modal.race-result--win h2 {
+  color: #ffd65a;
+  text-shadow: 0 0 12px rgba(255, 214, 90, 0.34);
+}
+
+.race-result-modal.race-result--lose h2 {
+  color: #ff8484;
+  text-shadow: 0 0 12px rgba(255, 132, 132, 0.3);
+}
+
+.race-result-modal p {
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.race-result-actions {
+  justify-content: center;
+}
+
 .race-choose-list {
   display: grid;
   gap: 0.4rem;
@@ -1052,6 +1113,14 @@ select:focus-visible {
 
 #race-choose-modal-root .modal-backdrop {
   background: rgba(4, 9, 12, 0.74);
+}
+
+#race-result-modal-root {
+  z-index: 84;
+}
+
+#race-result-modal-root .modal-backdrop {
+  background: rgba(4, 9, 12, 0.76);
 }
 
 .modal-backdrop {

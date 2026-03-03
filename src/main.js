@@ -16,11 +16,9 @@ import {
   loadSavedRacers,
   loadSavedTracks,
   loadTeamName,
-  loadNpcUnlockLevel,
   saveAppSettings,
   saveBestReturn,
   saveHyperparams,
-  saveNpcUnlockLevel,
   saveSavedRacers,
   saveSavedTracks,
   saveTeamName
@@ -198,6 +196,15 @@ const raceChooseModalElements = {
   backdrop: document.querySelector("#race-choose-modal-root .modal-backdrop")
 };
 
+const raceResultModalElements = {
+  root: document.getElementById("race-result-modal-root"),
+  dialog: document.querySelector("#race-result-modal-root .modal"),
+  title: document.getElementById("race-result-modal-title"),
+  message: document.getElementById("race-result-modal-message"),
+  closeBtn: document.getElementById("race-result-close-btn"),
+  backdrop: document.querySelector("#race-result-modal-root .modal-backdrop")
+};
+
 const persistedSettings = loadAppSettings();
 let appSettings = sanitizeAppSettings({
   ...DEFAULT_APP_SETTINGS,
@@ -309,18 +316,12 @@ const raceModeState = {
   modalOpen: false,
   trackModalOpen: false,
   chooseModalOpen: false,
+  resultModalOpen: false,
   targetLaps: 1,
   chooserSelection: new Set(),
   savedCardRefs: new Map(),
   placeCardRefs: new Map()
 };
-
-function clampNpcUnlockLevel(level) {
-  const numeric = Math.floor(Number(level) || 1);
-  return Math.max(1, Math.min(NPC_PROFILES.length, numeric));
-}
-
-let unlockedNpcLevel = clampNpcUnlockLevel(loadNpcUnlockLevel() ?? 1);
 
 function sanitizeSavedRacer(entry, fallbackIndex) {
   if (!entry || typeof entry !== "object") {
@@ -1296,7 +1297,9 @@ function getNpcSelectionId(npcId) {
 }
 
 function refreshRaceModalState() {
-  raceModeState.modalOpen = Boolean(raceModeState.trackModalOpen || raceModeState.chooseModalOpen);
+  raceModeState.modalOpen = Boolean(
+    raceModeState.trackModalOpen || raceModeState.chooseModalOpen || raceModeState.resultModalOpen
+  );
 }
 
 function computeRaceTargetLaps(trackConfig) {
@@ -1361,6 +1364,7 @@ function createRaceRacerCard(savedRacer) {
 
   const name = document.createElement("div");
   name.className = "race-racer-name";
+  name.classList.add("race-name-saved");
   name.textContent = savedRacer.name || "Unnamed Racer";
 
   const status = document.createElement("div");
@@ -1532,11 +1536,21 @@ function renderRacePlaceList() {
 
     const name = document.createElement("div");
     name.className = "race-place-name";
+    name.classList.add(isSavedRaceParticipant(participant) ? "race-name-saved" : "race-name-npc");
     name.textContent = participant.name;
     nameWrap.append(swatch, name);
 
     const rank = document.createElement("div");
     rank.className = "race-place-rank";
+    if (i === 0) {
+      rank.classList.add("race-place-rank--1");
+    } else if (i === 1) {
+      rank.classList.add("race-place-rank--2");
+    } else if (i === 2) {
+      rank.classList.add("race-place-rank--3");
+    } else {
+      rank.classList.add("race-place-rank--other");
+    }
     rank.textContent = `${i + 1}${i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"}`;
 
     head.append(nameWrap, rank);
@@ -1555,7 +1569,6 @@ function buildRaceChooserEntries() {
 
   for (let i = 0; i < NPC_PROFILES.length; i += 1) {
     const npc = NPC_PROFILES[i];
-    const unlocked = npc.level <= unlockedNpcLevel;
     entries.push({
       id: getNpcSelectionId(npc.id),
       label: `${npc.name} (NPC)`,
@@ -1563,10 +1576,7 @@ function buildRaceChooserEntries() {
       level: npc.level,
       tier: npc.tier,
       colors: [npc.carStyle.primary, npc.carStyle.secondary, npc.carStyle.accent],
-      unlocked,
-      meta: unlocked
-        ? `Level ${npc.level} ${npc.tier}`
-        : `Locked: beat Level ${Math.max(1, npc.level - 1)}`
+      meta: `Level ${npc.level} ${npc.tier}`
     });
   }
 
@@ -1610,7 +1620,7 @@ function applyRaceSelection(selectedIds) {
       }
       const npcId = id.slice("npc:".length);
       const npcProfile = NPC_PROFILES.find((npc) => npc.id === npcId);
-      if (!npcProfile || npcProfile.level > unlockedNpcLevel) {
+      if (!npcProfile) {
         continue;
       }
       nextParticipants.push(createNpcRaceParticipant(npcProfile, nextParticipants.length));
@@ -1957,6 +1967,10 @@ function updateRaceHud() {
   const leader = pickRaceLeader();
   if (raceModeElements.statLeader) {
     raceModeElements.statLeader.textContent = leader ? leader.name : "--";
+    raceModeElements.statLeader.classList.remove("race-name-saved", "race-name-npc");
+    if (leader) {
+      raceModeElements.statLeader.classList.add(isSavedRaceParticipant(leader) ? "race-name-saved" : "race-name-npc");
+    }
   }
   if (raceModeElements.statLeaderLaps) {
     raceModeElements.statLeaderLaps.textContent = leader
@@ -1971,7 +1985,50 @@ function updateRaceHud() {
   }
 }
 
-function endRace() {
+function getRaceWinner() {
+  const ordered = getSortedRaceParticipants();
+  return ordered.length ? ordered[0] : null;
+}
+
+function closeRaceResultModal() {
+  if (!raceModeState.resultModalOpen || !raceResultModalElements.root) {
+    return;
+  }
+  raceModeState.resultModalOpen = false;
+  refreshRaceModalState();
+  raceResultModalElements.root.hidden = true;
+}
+
+function openRaceResultModal(winner) {
+  if (!winner || !raceResultModalElements.root) {
+    return;
+  }
+
+  const savedWon = isSavedRaceParticipant(winner);
+  if (raceResultModalElements.dialog) {
+    raceResultModalElements.dialog.classList.toggle("race-result--win", savedWon);
+    raceResultModalElements.dialog.classList.toggle("race-result--lose", !savedWon);
+  }
+  if (raceResultModalElements.title) {
+    raceResultModalElements.title.textContent = savedWon ? "You Win!" : "You lose";
+  }
+  if (raceResultModalElements.message) {
+    raceResultModalElements.message.textContent = savedWon
+      ? `${winner.name} finished 1st place.`
+      : `${winner.name} won the race.`;
+  }
+
+  raceModeState.resultModalOpen = true;
+  refreshRaceModalState();
+  raceResultModalElements.root.hidden = false;
+
+  requestAnimationFrame(() => {
+    (raceResultModalElements.closeBtn || raceResultModalElements.dialog)?.focus();
+  });
+}
+
+function endRace({ showResult = false } = {}) {
+  const winner = showResult ? getRaceWinner() : null;
   setRaceRunning(false);
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
@@ -1979,6 +2036,9 @@ function endRace() {
   updateRaceControlState();
   updateRaceRacerCards();
   renderRacePlaceList();
+  if (winner) {
+    openRaceResultModal(winner);
+  }
 }
 
 function stepRaceParticipants() {
@@ -2077,7 +2137,7 @@ function stepRaceParticipants() {
     raceModeState.participants.length > 0 &&
     raceModeState.participants.every((participant) => participant.finished)
   ) {
-    endRace();
+    endRace({ showResult: true });
   }
 }
 
@@ -2187,8 +2247,12 @@ function openRaceChooseModal() {
     return;
   }
 
-  raceModeState.chooserSelection = getCurrentRaceSelectionIds();
-  while (raceModeState.chooserSelection.size > 5) {
+  const deployedSavedCount = raceModeState.participants.filter(isSavedRaceParticipant).length;
+  const maxNpcSelections = Math.max(0, 5 - deployedSavedCount);
+  raceModeState.chooserSelection = new Set(
+    Array.from(getCurrentRaceSelectionIds()).filter((id) => id.startsWith("npc:"))
+  );
+  while (raceModeState.chooserSelection.size > maxNpcSelections) {
     const first = raceModeState.chooserSelection.values().next().value;
     raceModeState.chooserSelection.delete(first);
   }
@@ -2208,6 +2272,7 @@ function openRaceChooseModal() {
     checkbox.checked = raceModeState.chooserSelection.has(entry.id);
 
     const text = document.createElement("span");
+    text.className = "race-choose-name race-name-npc";
     text.textContent = entry.label;
 
     const meta = document.createElement("small");
@@ -2219,7 +2284,7 @@ function openRaceChooseModal() {
 
     checkbox.addEventListener("change", () => {
       if (checkbox.checked) {
-        if (raceModeState.chooserSelection.size >= 5) {
+        if (raceModeState.chooserSelection.size >= maxNpcSelections) {
           checkbox.checked = false;
           return;
         }
@@ -2267,7 +2332,11 @@ function openRaceMode() {
   raceModeState.participants = [];
   raceModeState.trackModalOpen = false;
   raceModeState.chooseModalOpen = false;
+  raceModeState.resultModalOpen = false;
   refreshRaceModalState();
+  if (raceResultModalElements.root) {
+    raceResultModalElements.root.hidden = true;
+  }
 
   setRaceRunning(false);
   applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: false });
@@ -2287,6 +2356,7 @@ function closeRaceMode() {
 
   closeRaceTrackModal();
   closeRaceChooseModal();
+  closeRaceResultModal();
   raceModeState.active = false;
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
@@ -2437,7 +2507,6 @@ ui.setDrawMode(false, 0);
 saveHyperparams(hyperparams);
 saveTeamName(teamName);
 saveAppSettings(appSettings);
-saveNpcUnlockLevel(unlockedNpcLevel);
 savedRacers = persistSavedRacers(savedRacers);
 savedTracks = persistSavedTracks(savedTracks);
 
@@ -2477,7 +2546,7 @@ raceModeElements.endBtn?.addEventListener("click", () => {
   if (!raceModeState.active || raceModeState.modalOpen) {
     return;
   }
-  endRace();
+  endRace({ showResult: false });
 });
 
 raceTrackModalElements.closeBtn?.addEventListener("click", () => {
@@ -2500,6 +2569,14 @@ raceChooseModalElements.backdrop?.addEventListener("click", () => {
   closeRaceChooseModal(false);
 });
 
+raceResultModalElements.closeBtn?.addEventListener("click", () => {
+  closeRaceResultModal();
+});
+
+raceResultModalElements.backdrop?.addEventListener("click", () => {
+  closeRaceResultModal();
+});
+
 document.addEventListener("keydown", (event) => {
   if (!raceModeState.modalOpen) {
     return;
@@ -2511,6 +2588,8 @@ document.addEventListener("keydown", (event) => {
       closeRaceTrackModal();
     } else if (raceModeState.chooseModalOpen) {
       closeRaceChooseModal(false);
+    } else if (raceModeState.resultModalOpen) {
+      closeRaceResultModal();
     }
     return;
   }
@@ -2521,7 +2600,9 @@ document.addEventListener("keydown", (event) => {
 
   const dialog = raceModeState.trackModalOpen
     ? raceTrackModalElements.root?.querySelector(".modal")
-    : raceChooseModalElements.dialog;
+    : raceModeState.chooseModalOpen
+    ? raceChooseModalElements.dialog
+    : raceResultModalElements.dialog;
   const focusable = getFocusableElements(dialog);
   if (!focusable.length) {
     return;

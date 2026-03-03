@@ -315,6 +315,17 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=race-width1200-20260302"></script>
+    <div id="race-result-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div class="modal race-result-modal" role="dialog" aria-modal="true" aria-labelledby="race-result-modal-title" tabindex="-1">
+        <h2 id="race-result-modal-title">You Win!</h2>
+        <p id="race-result-modal-message">Race complete.</p>
+        <div class="modal-actions race-result-actions">
+          <button id="race-result-close-btn" class="primary" type="button">Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js?v=race-result-20260302"></script>
   </body>
 </html>
