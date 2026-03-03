@@ -247,6 +247,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
     toggleSensors: document.getElementById("toggle-sensors"),
     toggleTrail: document.getElementById("toggle-trail"),
+    toggleAutoTrain: document.getElementById("toggle-auto-train"),
     sliderContainer: document.getElementById("training-sliders"),
     savedRacerList: document.getElementById("saved-racer-list"),
     savedTrackList: document.getElementById("saved-track-list"),
@@ -352,6 +353,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     onRequestShare: () => {},
     onRequestRaceMode: () => {},
     onTrainingSpeedChange: () => {},
+    onAutoTrainToggle: () => {},
     onFinishDrawTrack: () => {},
     onCancelDrawTrack: () => {},
     onDeploySavedRacer: () => {},
@@ -549,6 +551,20 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
 
   function getTrainingSpeed() {
     return trainingSpeed;
+  }
+
+  function setAutoTrainEnabled(enabled, notify = false) {
+    const next = Boolean(enabled);
+    if (elements.toggleAutoTrain) {
+      elements.toggleAutoTrain.checked = next;
+    }
+    if (notify) {
+      handlers.onAutoTrainToggle(next);
+    }
+  }
+
+  function getAutoTrainEnabled() {
+    return Boolean(elements.toggleAutoTrain?.checked);
   }
 
   function setRunning(isRunning) {
@@ -1470,6 +1486,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   elements.trainingSpeedSlider?.addEventListener("input", () => {
     setTrainingSpeed(elements.trainingSpeedSlider.value, true);
   });
+  elements.toggleAutoTrain?.addEventListener("change", () => {
+    setAutoTrainEnabled(elements.toggleAutoTrain.checked, true);
+  });
   elements.drawTrackFinishBtn?.addEventListener("click", () => handlers.onFinishDrawTrack());
   elements.drawTrackCancelBtn?.addEventListener("click", () => handlers.onCancelDrawTrack());
 
@@ -1506,6 +1525,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
 
   buildSliderPanel();
   setTrainingSpeed(trainingSpeed, false);
+  setAutoTrainEnabled(false, false);
   setSavedRacers([], []);
   setSavedTracks([]);
   setTeamName(teamName, false);
@@ -1544,6 +1564,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     setSavedTracks,
     getTrainingSpeed,
     setTrainingSpeed,
+    getAutoTrainEnabled,
+    setAutoTrainEnabled,
     confirmNewRacer,
     confirmDeleteRacer,
     confirmDeleteTrack,

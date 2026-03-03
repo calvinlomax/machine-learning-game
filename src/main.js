@@ -32,6 +32,10 @@ const RACE_WORLD_WIDTH = 1200;
 const RACE_WORLD_HEIGHT = 900;
 const RACE_MODE_TRACK_WIDTH = 120;
 const RACE_MAX_EPISODE_STEPS = 500000;
+const AUTO_TRAIN_SPEED = 25;
+const AUTO_TRAIN_EPISODE_LIMIT = 500;
+const AUTO_TRAIN_TWO_LAP_TARGET = 2;
+const AUTO_TRAIN_STREAK_LIMIT = 3;
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
@@ -289,6 +293,12 @@ let currentCarId = DEFAULT_CAR_ID;
 let currentDriverName = "Current Racer";
 let deployedRacerId = null;
 let trainingSpeedMultiplier = appSettings.trainingSpeed;
+const autoTrainState = {
+  enabled: false,
+  episodesOnTrack: 0,
+  consecutiveTwoLapEpisodes: 0,
+  trackKey: ""
+};
 
 const drawState = {
   active: false,
@@ -538,6 +548,57 @@ function fromNormalizedShapePoints(normalizedPoints) {
     }));
 }
 
+function getAutoTrainTrackKey() {
+  const sourceType = trackSource?.type === "shape" ? "shape" : "seed";
+  const sourceSeed = normalizeSeed(clampSeedInput(trackSource?.seed ?? currentSeed));
+  return `${sourceType}:${sourceSeed}`;
+}
+
+function resetAutoTrainTrackProgress() {
+  autoTrainState.trackKey = getAutoTrainTrackKey();
+  autoTrainState.episodesOnTrack = 0;
+  autoTrainState.consecutiveTwoLapEpisodes = 0;
+}
+
+function setAutoTrainEnabled(enabled) {
+  autoTrainState.enabled = Boolean(enabled);
+  if (autoTrainState.enabled) {
+    trainingSpeedMultiplier = AUTO_TRAIN_SPEED;
+    ui.setTrainingSpeed(AUTO_TRAIN_SPEED, false);
+  } else {
+    trainingSpeedMultiplier = appSettings.trainingSpeed;
+    ui.setTrainingSpeed(trainingSpeedMultiplier, false);
+  }
+  resetAutoTrainTrackProgress();
+}
+
+function maybeRotateAutoTrainTrack(completedLapCount) {
+  if (!autoTrainState.enabled) {
+    return;
+  }
+
+  const currentTrackKey = getAutoTrainTrackKey();
+  if (autoTrainState.trackKey !== currentTrackKey) {
+    resetAutoTrainTrackProgress();
+  }
+
+  autoTrainState.episodesOnTrack += 1;
+  if (completedLapCount >= AUTO_TRAIN_TWO_LAP_TARGET) {
+    autoTrainState.consecutiveTwoLapEpisodes += 1;
+  } else {
+    autoTrainState.consecutiveTwoLapEpisodes = 0;
+  }
+
+  const reachedEpisodeLimit = autoTrainState.episodesOnTrack >= AUTO_TRAIN_EPISODE_LIMIT;
+  const reachedLapStreak = autoTrainState.consecutiveTwoLapEpisodes >= AUTO_TRAIN_STREAK_LIMIT;
+
+  if (!reachedEpisodeLimit && !reachedLapStreak) {
+    return;
+  }
+
+  setTrackFromSeed(randomSeed(), { name: null });
+}
+
 function regenerateTrackFromSource() {
   if (trackSource.type === "shape" && Array.isArray(trackSource.shapePointsNorm) && trackSource.shapePointsNorm.length >= 4) {
     const worldPoints = fromNormalizedShapePoints(trackSource.shapePointsNorm);
@@ -559,6 +620,7 @@ function regenerateTrackFromSource() {
 
   ui.setSeedInput(currentSeed);
   observation = env.setTrack(track);
+  resetAutoTrainTrackProgress();
 }
 
 function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
@@ -570,7 +632,7 @@ function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
   renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
   ui.setSettings(appSettings);
   ui.applyTheme(appSettings.uiTheme);
-  trainingSpeedMultiplier = appSettings.trainingSpeed;
+  trainingSpeedMultiplier = autoTrainState.enabled ? AUTO_TRAIN_SPEED : appSettings.trainingSpeed;
   ui.setTrainingSpeed(trainingSpeedMultiplier, false);
   saveAppSettings(appSettings);
 
@@ -621,6 +683,7 @@ function resetEpisode({ countAsNewEpisode = true } = {}) {
 }
 
 function handleEpisodeTermination() {
+  const completedLapCount = Math.max(0, Math.floor(Number(env.currentLapCount) || 0));
   const finishedReturn = env.episodeReturn;
   if (!Number.isFinite(bestEpisodeReturn) || finishedReturn > bestEpisodeReturn) {
     bestEpisodeReturn = finishedReturn;
@@ -629,6 +692,7 @@ function handleEpisodeTermination() {
 
   agent.onEpisodeEnd();
   syncDeployedSavedRacerProgress();
+  maybeRotateAutoTrainTrack(completedLapCount);
   resetEpisode({ countAsNewEpisode: true });
 
   const forcedUpdate = agent.train(1);
@@ -2444,12 +2508,20 @@ ui.setHandlers({
     openRaceMode();
   },
   onTrainingSpeedChange: (nextSpeed) => {
+    if (autoTrainState.enabled) {
+      trainingSpeedMultiplier = AUTO_TRAIN_SPEED;
+      ui.setTrainingSpeed(AUTO_TRAIN_SPEED, false);
+      return;
+    }
     trainingSpeedMultiplier = Math.round(clamp(Number(nextSpeed) || 1, 1, 25));
     appSettings = sanitizeAppSettings({
       ...appSettings,
       trainingSpeed: trainingSpeedMultiplier
     });
     saveAppSettings(appSettings);
+  },
+  onAutoTrainToggle: (enabled) => {
+    setAutoTrainEnabled(enabled);
   },
   onFinishDrawTrack: () => {
     finishDrawMode();
@@ -2502,7 +2574,9 @@ ui.setRunning(running);
 ui.setSettings(appSettings);
 ui.applyTheme(appSettings.uiTheme);
 ui.setTrainingSpeed(trainingSpeedMultiplier, false);
+ui.setAutoTrainEnabled(autoTrainState.enabled, false);
 ui.setDrawMode(false, 0);
+resetAutoTrainTrackProgress();
 
 saveHyperparams(hyperparams);
 saveTeamName(teamName);
