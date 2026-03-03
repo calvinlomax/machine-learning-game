@@ -1,4 +1,30 @@
-const BASE_URL = import.meta.env?.BASE_URL ?? "/";
+function normalizeBasePath(basePath) {
+  const raw = String(basePath || "/").trim() || "/";
+  const prefixed = raw.startsWith("/") ? raw : `/${raw}`;
+  return prefixed.endsWith("/") ? prefixed : `${prefixed}/`;
+}
+
+function resolveBaseUrl(configuredBase) {
+  const normalized = normalizeBasePath(configuredBase);
+  if (normalized !== "/") {
+    return normalized;
+  }
+
+  const host = String(window.location.hostname || "").toLowerCase();
+  if (!host.endsWith("github.io")) {
+    return "/";
+  }
+
+  const segments = String(window.location.pathname || "/")
+    .split("/")
+    .filter(Boolean);
+  if (!segments.length) {
+    return "/";
+  }
+  return `/${segments[0]}/`;
+}
+
+const BASE_URL = resolveBaseUrl(import.meta.env?.BASE_URL ?? "/");
 
 function applyStoredTheme() {
   try {

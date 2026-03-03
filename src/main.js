@@ -24,7 +24,39 @@ import {
   saveTeamName
 } from "./storage.js";
 
-const BASE_URL = import.meta.env?.BASE_URL ?? "/";
+function normalizeBasePath(basePath) {
+  const raw = String(basePath || "/").trim() || "/";
+  const prefixed = raw.startsWith("/") ? raw : `/${raw}`;
+  return prefixed.endsWith("/") ? prefixed : `${prefixed}/`;
+}
+
+function resolveBaseUrl(configuredBase) {
+  const normalized = normalizeBasePath(configuredBase);
+  if (normalized !== "/") {
+    return normalized;
+  }
+
+  if (typeof window === "undefined") {
+    return "/";
+  }
+
+  const host = String(window.location.hostname || "").toLowerCase();
+  if (!host.endsWith("github.io")) {
+    return "/";
+  }
+
+  const segments = String(window.location.pathname || "/")
+    .split("/")
+    .filter(Boolean);
+
+  if (!segments.length) {
+    return "/";
+  }
+
+  return `/${segments[0]}/`;
+}
+
+const BASE_URL = resolveBaseUrl(import.meta.env?.BASE_URL ?? "/");
 const DEFAULT_TEAM_NAME = "ML1 Academy";
 const MAX_SAVED_RACERS = 4;
 const MAX_SAVED_TRACKS = 8;
