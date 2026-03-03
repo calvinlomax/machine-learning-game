@@ -5,6 +5,7 @@ import { DQNAgent } from "./rl.js";
 import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
+import { NpcController, NPC_PROFILES } from "./npc.js";
 import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=track-metrics-20260227";
 import { randomBizzaroName } from "./names.js";
 import {
@@ -163,6 +164,7 @@ const raceModeElements = {
   trackBtn: document.getElementById("race-mode-track-btn"),
   deployBtn: document.getElementById("race-mode-deploy-btn"),
   exitBtn: document.getElementById("race-mode-exit-btn"),
+  npcList: document.getElementById("race-npc-list"),
   racerList: document.getElementById("race-racer-list"),
   statTime: document.getElementById("race-stat-time"),
   statLeader: document.getElementById("race-stat-leader"),
@@ -287,7 +289,8 @@ const raceModeState = {
   elapsedSec: 0,
   accumulatorMs: 0,
   modalOpen: false,
-  cardRefs: new Map()
+  savedCardRefs: new Map(),
+  npcCardRefs: new Map()
 };
 
 function sanitizeSavedRacer(entry, fallbackIndex) {
@@ -1206,6 +1209,18 @@ function getRacePresetById(presetId) {
   return TRACK_PRESETS[0] || null;
 }
 
+function isSavedRaceParticipant(participant) {
+  return participant?.kind === "saved";
+}
+
+function isNpcRaceParticipant(participant) {
+  return participant?.kind === "npc";
+}
+
+function getNpcParticipantId(npcId) {
+  return `npc:${npcId}`;
+}
+
 function applyRaceTrackPreset(presetId, options = {}) {
   const resetParticipants = options.resetParticipants !== false;
   const preset = getRacePresetById(presetId);
@@ -1235,12 +1250,17 @@ function applyRaceTrackPreset(presetId, options = {}) {
       participant.currentLapTimeSec = 0;
       participant.bestLapTimeSec = null;
       participant.episodeCount = 1;
-      participant.status = "Ready";
+      participant.status = participant.kind === "npc" ? "Deployed" : "Ready";
     }
   }
 
   if (raceModeElements.statTrack) {
     raceModeElements.statTrack.textContent = raceTrackLabel;
+  }
+
+  if (raceModeState.active) {
+    updateRaceRacerCards();
+    updateRaceNpcCards();
   }
 }
 
@@ -1293,7 +1313,7 @@ function createRaceRacerCard(savedRacer) {
     episodes: episodesRow.querySelector("strong")
   };
 
-  raceModeState.cardRefs.set(savedRacer.id, refs);
+  raceModeState.savedCardRefs.set(savedRacer.id, refs);
   return card;
 }
 
@@ -1302,14 +1322,14 @@ function updateRaceRacerCards() {
 
   for (let i = 0; i < savedRacers.length; i += 1) {
     const racer = savedRacers[i];
-    const refs = raceModeState.cardRefs.get(racer.id);
+    const refs = raceModeState.savedCardRefs.get(racer.id);
     if (!refs) {
       continue;
     }
 
     const participant = participantsById.get(racer.id);
     if (!participant) {
-      refs.status.textContent = "Ready to deploy";
+      refs.status.textContent = "Not deployed";
       refs.laps.textContent = "0";
       refs.progress.textContent = "0.0%";
       refs.bestLap.textContent = formatLapClock(racer.metrics?.bestLapTimeSec || 0);
@@ -1331,7 +1351,7 @@ function renderRaceRacerList() {
   }
 
   raceModeElements.racerList.innerHTML = "";
-  raceModeState.cardRefs.clear();
+  raceModeState.savedCardRefs.clear();
 
   if (!savedRacers.length) {
     const empty = document.createElement("div");
@@ -1348,11 +1368,96 @@ function renderRaceRacerList() {
   updateRaceRacerCards();
 }
 
+function createRaceNpcCard(profile) {
+  const card = document.createElement("article");
+  card.className = "race-npc-card";
+  card.dataset.npcId = profile.id;
+
+  const head = document.createElement("div");
+  head.className = "race-npc-head";
+
+  const name = document.createElement("div");
+  name.className = "race-npc-name";
+  name.textContent = profile.name;
+
+  const level = document.createElement("div");
+  level.className = "race-npc-level";
+  level.textContent = `Lv ${profile.level} ${profile.tier}`;
+
+  head.append(name, level);
+  card.appendChild(head);
+
+  const statusRow = document.createElement("div");
+  statusRow.className = "race-npc-status-row";
+  statusRow.innerHTML = "<span>Status</span><strong>Available</strong>";
+  card.appendChild(statusRow);
+
+  const actions = document.createElement("div");
+  actions.className = "race-npc-actions";
+
+  const deployBtn = document.createElement("button");
+  deployBtn.type = "button";
+  deployBtn.className = "primary";
+  deployBtn.textContent = "Deploy";
+  deployBtn.addEventListener("click", () => deployNpcRacer(profile.id));
+
+  const withdrawBtn = document.createElement("button");
+  withdrawBtn.type = "button";
+  withdrawBtn.className = "danger";
+  withdrawBtn.textContent = "Withdraw";
+  withdrawBtn.addEventListener("click", () => withdrawNpcRacer(profile.id));
+
+  actions.append(deployBtn, withdrawBtn);
+  card.appendChild(actions);
+
+  raceModeState.npcCardRefs.set(profile.id, {
+    status: statusRow.querySelector("strong"),
+    deployBtn,
+    withdrawBtn
+  });
+
+  return card;
+}
+
+function renderRaceNpcList() {
+  if (!raceModeElements.npcList) {
+    return;
+  }
+
+  raceModeElements.npcList.innerHTML = "";
+  raceModeState.npcCardRefs.clear();
+
+  for (let i = 0; i < NPC_PROFILES.length; i += 1) {
+    raceModeElements.npcList.appendChild(createRaceNpcCard(NPC_PROFILES[i]));
+  }
+
+  updateRaceNpcCards();
+}
+
+function updateRaceNpcCards() {
+  const participantIds = new Set(raceModeState.participants.map((participant) => participant.id));
+
+  for (let i = 0; i < NPC_PROFILES.length; i += 1) {
+    const npc = NPC_PROFILES[i];
+    const refs = raceModeState.npcCardRefs.get(npc.id);
+    if (!refs) {
+      continue;
+    }
+
+    const isDeployed = participantIds.has(getNpcParticipantId(npc.id));
+    refs.status.textContent = isDeployed ? "Deployed" : "Available";
+    refs.deployBtn.disabled = isDeployed;
+    refs.withdrawBtn.disabled = !isDeployed;
+  }
+}
+
 function syncRaceModeSavedRacers(nextSavedRacers) {
   const canonical = Array.isArray(nextSavedRacers) ? nextSavedRacers : [];
   const allowedIds = new Set(canonical.map((racer) => racer.id));
 
-  raceModeState.participants = raceModeState.participants.filter((participant) => allowedIds.has(participant.id));
+  raceModeState.participants = raceModeState.participants.filter(
+    (participant) => isNpcRaceParticipant(participant) || allowedIds.has(participant.id)
+  );
 
   for (let i = 0; i < raceModeState.participants.length; i += 1) {
     const participant = raceModeState.participants[i];
@@ -1368,6 +1473,7 @@ function syncRaceModeSavedRacers(nextSavedRacers) {
 
   if (raceModeState.active) {
     renderRaceRacerList();
+    renderRaceNpcList();
     updateRaceControlState();
     updateRaceHud();
   }
@@ -1418,6 +1524,7 @@ function createRaceParticipant(savedRacer, index) {
 
   return {
     id: savedRacer.id,
+    kind: "saved",
     name: savedRacer.name || "Unnamed Racer",
     carId: carById.has(savedRacer.carId) ? savedRacer.carId : DEFAULT_CAR_ID,
     carStyle: carById.get(savedRacer.carId) || carById.get(DEFAULT_CAR_ID),
@@ -1432,6 +1539,51 @@ function createRaceParticipant(savedRacer, index) {
     bestLapTimeSec: Number.isFinite(bestLapTime) && bestLapTime > 0 ? bestLapTime : null,
     episodeCount: 1,
     status: "Ready"
+  };
+}
+
+function createNpcRaceParticipant(profile, index) {
+  const baseId = getNpcParticipantId(profile.id);
+  const seedBase = normalizeSeed(`${raceTrack.seed}-${baseId}-${index}`);
+  const raceEnvRng = new RNG(seedBase ^ 0x7f4a7c15);
+  const raceNpcRng = new RNG(seedBase ^ 0x94d049bb);
+
+  const participantEnv = new RacingEnv({
+    track: raceTrack,
+    rng: raceEnvRng,
+    dt: env.dt,
+    maxEpisodeSteps: 2400,
+    actionSmoothing: 0.42,
+    rewardWeights: {
+      progressWeight: 1.8,
+      offTrackPenalty: -5,
+      speedPenaltyWeight: 0.4
+    }
+  });
+
+  const controller = new NpcController(profile, raceNpcRng);
+  const renderState = participantEnv.getRenderState();
+  const bestLapTime = Number(renderState.bestLapTimeSec);
+
+  return {
+    id: baseId,
+    kind: "npc",
+    name: `${profile.name} (NPC)`,
+    level: profile.level,
+    tier: profile.tier,
+    carId: profile.id,
+    carStyle: profile.carStyle,
+    env: participantEnv,
+    controller,
+    observation: participantEnv.currentObservation,
+    renderState,
+    laps: 0,
+    lastEnvLapCount: Math.max(0, Math.floor(Number(renderState.currentLapCount) || 0)),
+    progress: clamp(Number(renderState.lapProgress) || 0, 0, 1),
+    currentLapTimeSec: Number(renderState.thisLapTimeSec) || 0,
+    bestLapTimeSec: Number.isFinite(bestLapTime) && bestLapTime > 0 ? bestLapTime : null,
+    episodeCount: 1,
+    status: "Deployed"
   };
 }
 
@@ -1453,12 +1605,56 @@ function updateRaceControlState() {
 }
 
 function deployRaceParticipants() {
-  raceModeState.participants = savedRacers.map((savedRacer, index) => createRaceParticipant(savedRacer, index));
+  const npcParticipants = raceModeState.participants.filter(isNpcRaceParticipant);
+  const savedParticipants = savedRacers.map((savedRacer, index) => createRaceParticipant(savedRacer, index));
+  raceModeState.participants = [...savedParticipants, ...npcParticipants];
   raceModeState.elapsedSec = 0;
   raceModeState.accumulatorMs = 0;
   setRaceRunning(false);
   updateRaceControlState();
   updateRaceRacerCards();
+  updateRaceNpcCards();
+}
+
+function deployNpcRacer(npcId) {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+
+  const profile = NPC_PROFILES.find((item) => item.id === npcId);
+  if (!profile) {
+    return;
+  }
+
+  const participantId = getNpcParticipantId(npcId);
+  if (raceModeState.participants.some((participant) => participant.id === participantId)) {
+    return;
+  }
+
+  const index = raceModeState.participants.length;
+  raceModeState.participants.push(createNpcRaceParticipant(profile, index));
+  updateRaceControlState();
+  updateRaceNpcCards();
+}
+
+function withdrawNpcRacer(npcId) {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+
+  const participantId = getNpcParticipantId(npcId);
+  const nextParticipants = raceModeState.participants.filter((participant) => participant.id !== participantId);
+  if (nextParticipants.length === raceModeState.participants.length) {
+    return;
+  }
+
+  raceModeState.participants = nextParticipants;
+  if (!raceModeState.participants.length) {
+    setRaceRunning(false);
+  }
+
+  updateRaceControlState();
+  updateRaceNpcCards();
 }
 
 function pickRaceLeader() {
@@ -1533,7 +1729,12 @@ function updateRaceHud() {
 function stepRaceParticipants() {
   for (let i = 0; i < raceModeState.participants.length; i += 1) {
     const participant = raceModeState.participants[i];
-    const actionIndex = participant.agent.actGreedy(participant.observation);
+    let actionIndex = 4;
+    if (isSavedRaceParticipant(participant)) {
+      actionIndex = participant.agent.actGreedy(participant.observation);
+    } else if (isNpcRaceParticipant(participant)) {
+      actionIndex = participant.controller.decide(participant, raceTrack);
+    }
     const transition = participant.env.step(actionIndex);
     participant.observation = transition.observation;
 
@@ -1599,6 +1800,7 @@ function renderRaceFrame() {
 
   updateRaceHud();
   updateRaceRacerCards();
+  updateRaceNpcCards();
 }
 
 function closeRaceTrackModal() {
@@ -1660,6 +1862,7 @@ function openRaceMode() {
 
   setRaceRunning(false);
   applyRaceTrackPreset(raceTrackPresetId, { resetParticipants: false });
+  renderRaceNpcList();
   renderRaceRacerList();
   updateRaceControlState();
   renderRaceFrame();
