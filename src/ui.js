@@ -259,6 +259,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     toggleSensors: document.getElementById("toggle-sensors"),
     toggleTrail: document.getElementById("toggle-trail"),
     toggleAutoTrain: document.getElementById("toggle-auto-train"),
+    toggleAutoParam: document.getElementById("toggle-auto-param"),
     sliderContainer: document.getElementById("training-sliders"),
     savedRacerList: document.getElementById("saved-racer-list"),
     savedTrackList: document.getElementById("saved-track-list"),
@@ -375,6 +376,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     onRequestRaceMode: () => {},
     onTrainingSpeedChange: () => {},
     onAutoTrainToggle: () => {},
+    onAutoParamToggle: () => {},
     onFinishDrawTrack: () => {},
     onCancelDrawTrack: () => {},
     onDeploySavedRacer: () => {},
@@ -391,6 +393,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   let editingTeamName = false;
   let drawModeActive = false;
   let trainingSpeed = clamp(Math.round(Number(initialSettings?.trainingSpeed) || 1), 1, 25);
+  let autoParamEnabled = Boolean(initialSettings?.autoParamEnabled);
   let settings = {
     worldWidth: Number(initialSettings?.worldWidth) || 900,
     worldHeight: Number(initialSettings?.worldHeight) || 600,
@@ -705,6 +708,21 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
 
   function getAutoTrainEnabled() {
     return Boolean(elements.toggleAutoTrain?.checked);
+  }
+
+  function setAutoParamEnabled(enabled, notify = false) {
+    const next = Boolean(enabled);
+    autoParamEnabled = next;
+    if (elements.toggleAutoParam) {
+      elements.toggleAutoParam.checked = next;
+    }
+    if (notify) {
+      handlers.onAutoParamToggle(next);
+    }
+  }
+
+  function getAutoParamEnabled() {
+    return Boolean(elements.toggleAutoParam?.checked);
   }
 
   function setRunning(isRunning) {
@@ -1646,6 +1664,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   elements.toggleAutoTrain?.addEventListener("change", () => {
     setAutoTrainEnabled(elements.toggleAutoTrain.checked, true);
   });
+  elements.toggleAutoParam?.addEventListener("change", () => {
+    setAutoParamEnabled(elements.toggleAutoParam.checked, true);
+  });
   elements.drawTrackFinishBtn?.addEventListener("click", () => handlers.onFinishDrawTrack());
   elements.drawTrackCancelBtn?.addEventListener("click", () => handlers.onCancelDrawTrack());
   elements.advancedTrainingBtn?.addEventListener("click", openAdvancedTrainingModal);
@@ -1681,6 +1702,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   buildAdvancedSliderPanel();
   setTrainingSpeed(trainingSpeed, false);
   setAutoTrainEnabled(false, false);
+  setAutoParamEnabled(autoParamEnabled, false);
   setSavedRacers([], []);
   setSavedTracks([]);
   setTeamName(teamName, false);
@@ -1721,6 +1743,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     setTrainingSpeed,
     getAutoTrainEnabled,
     setAutoTrainEnabled,
+    getAutoParamEnabled,
+    setAutoParamEnabled,
     confirmNewRacer,
     confirmDeleteRacer,
     confirmDeleteTrack,

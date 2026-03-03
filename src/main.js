@@ -6,7 +6,7 @@ import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
 import { NpcController, NPC_PROFILES } from "./npc.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=advanced-training-panel-20260303";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=auto-param-toggle-20260303";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
@@ -60,7 +60,8 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   canvasBgColor: "#1b2b2f",
   canvasPattern: "diagonal",
   uiTheme: "light",
-  trainingSpeed: 1
+  trainingSpeed: 1,
+  autoParamEnabled: false
 });
 
 document.documentElement.dataset.baseUrl = BASE_URL;
@@ -90,7 +91,8 @@ function sanitizeAppSettings(input) {
     canvasBgColor: sanitizeColor(source.canvasBgColor, DEFAULT_APP_SETTINGS.canvasBgColor),
     canvasPattern: allowedPatterns.has(source.canvasPattern) ? source.canvasPattern : "diagonal",
     uiTheme: source.uiTheme === "dark" ? "dark" : "light",
-    trainingSpeed: Math.round(clamp(Number(source.trainingSpeed) || 1, 1, 25))
+    trainingSpeed: Math.round(clamp(Number(source.trainingSpeed) || 1, 1, 25)),
+    autoParamEnabled: Boolean(source.autoParamEnabled)
   };
 }
 
@@ -606,7 +608,7 @@ function stepAutoTrainParamValue(param, currentValue, direction) {
 }
 
 function maybeApplyAutoTrainTweak() {
-  if (!autoTrainState.enabled || autoTrainState.pendingTweak) {
+  if (!autoTrainState.enabled || !appSettings.autoParamEnabled || autoTrainState.pendingTweak) {
     return;
   }
 
@@ -681,6 +683,17 @@ function setAutoTrainEnabled(enabled) {
   }
   resetAutoTrainTrackProgress();
   resetAutoTrainTuningProgress();
+}
+
+function setAutoParamEnabled(enabled) {
+  const next = Boolean(enabled);
+  appSettings = sanitizeAppSettings({
+    ...appSettings,
+    autoParamEnabled: next
+  });
+  saveAppSettings(appSettings);
+  resetAutoTrainTuningProgress();
+  ui.setAutoParamEnabled(next, false);
 }
 
 function maybeRotateAutoTrainTrack(completedLapCount) {
@@ -2688,6 +2701,9 @@ ui.setHandlers({
   onAutoTrainToggle: (enabled) => {
     setAutoTrainEnabled(enabled);
   },
+  onAutoParamToggle: (enabled) => {
+    setAutoParamEnabled(enabled);
+  },
   onFinishDrawTrack: () => {
     finishDrawMode();
   },
@@ -2740,6 +2756,7 @@ ui.setSettings(appSettings);
 ui.applyTheme(appSettings.uiTheme);
 ui.setTrainingSpeed(trainingSpeedMultiplier, false);
 ui.setAutoTrainEnabled(autoTrainState.enabled, false);
+ui.setAutoParamEnabled(Boolean(appSettings.autoParamEnabled), false);
 ui.setDrawMode(false, 0);
 resetAutoTrainTrackProgress();
 

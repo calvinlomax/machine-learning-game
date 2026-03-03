@@ -1463,10 +1463,12 @@ select:focus-visible {
 
   .controls {
     grid-column: 2;
+    grid-row: 2;
   }
 
   .training {
     grid-column: 2;
+    grid-row: 3;
   }
 
   .hud-grid {
