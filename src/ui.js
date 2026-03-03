@@ -242,6 +242,8 @@ function getFocusableElements(root) {
 
 export function createUI({ initialHyperparams, initialSeed, initialTeamName, initialSettings }) {
   const elements = {
+    appShell: document.querySelector(".app-shell"),
+    controlsPanel: document.querySelector(".controls"),
     startPauseBtn: document.getElementById("start-pause-btn"),
     stepBtn: document.getElementById("step-btn"),
     episodeResetBtn: document.getElementById("episode-reset-btn"),
@@ -723,6 +725,38 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
 
   function getAutoParamEnabled() {
     return Boolean(elements.toggleAutoParam?.checked);
+  }
+
+  let panelLayoutFrame = 0;
+  function syncPanelLayout() {
+    const appShell = elements.appShell;
+    const controlsPanel = elements.controlsPanel;
+    if (!appShell || !controlsPanel) {
+      return;
+    }
+
+    const isDesktop = window.matchMedia("(min-width: 860px)").matches;
+    if (!isDesktop) {
+      appShell.classList.remove("panel-stacked");
+      appShell.style.removeProperty("--training-panel-offset");
+      return;
+    }
+
+    const controlsRect = controlsPanel.getBoundingClientRect();
+    const rowGap = parseFloat(window.getComputedStyle(appShell).rowGap) || 0;
+    const offset = Math.max(0, Math.ceil(controlsRect.height + rowGap));
+    appShell.style.setProperty("--training-panel-offset", `${offset}px`);
+    appShell.classList.add("panel-stacked");
+  }
+
+  function queuePanelLayoutSync() {
+    if (panelLayoutFrame) {
+      return;
+    }
+    panelLayoutFrame = requestAnimationFrame(() => {
+      panelLayoutFrame = 0;
+      syncPanelLayout();
+    });
   }
 
   function setRunning(isRunning) {
@@ -1698,6 +1732,14 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     }
   });
 
+  window.addEventListener("resize", queuePanelLayoutSync);
+  if (typeof ResizeObserver === "function" && elements.controlsPanel) {
+    const controlsResizeObserver = new ResizeObserver(() => {
+      queuePanelLayoutSync();
+    });
+    controlsResizeObserver.observe(elements.controlsPanel);
+  }
+
   buildPrimarySliderPanel();
   buildAdvancedSliderPanel();
   setTrainingSpeed(trainingSpeed, false);
@@ -1706,6 +1748,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   setSavedRacers([], []);
   setSavedTracks([]);
   setTeamName(teamName, false);
+  queuePanelLayoutSync();
 
   return {
     setHandlers(nextHandlers) {

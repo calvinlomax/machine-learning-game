@@ -6,7 +6,7 @@ import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
 import { NpcController, NPC_PROFILES } from "./npc.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=auto-param-toggle-20260303";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=panel-layout-sync-20260303";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,

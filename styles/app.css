@@ -1471,6 +1471,12 @@ select:focus-visible {
     grid-row: 3;
   }
 
+  .app-shell.panel-stacked .training {
+    grid-row: 2;
+    align-self: start;
+    margin-top: var(--training-panel-offset, 0px);
+  }
+
   .hud-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
