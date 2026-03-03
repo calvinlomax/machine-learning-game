@@ -41,6 +41,7 @@ body {
     radial-gradient(circle at 80% 0%, #f2e0bd 0%, transparent 40%),
     linear-gradient(160deg, var(--bg) 0%, var(--bg-accent) 100%);
   min-height: 100vh;
+  padding-bottom: 2.8rem;
 }
 
 :root[data-theme="dark"] body {
@@ -118,6 +119,37 @@ select:focus-visible {
   padding: 0.8rem 0 1.2rem;
   display: grid;
   gap: 0.8rem;
+}
+
+.site-ribbon {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.45rem 0.95rem;
+  background: rgba(8, 11, 15, 0.94);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f0f5f8;
+  font-size: 0.82rem;
+  backdrop-filter: blur(4px);
+}
+
+.site-ribbon a {
+  color: #9ad9ff;
+  text-decoration: none;
+  font-weight: 650;
+}
+
+.site-ribbon a:hover,
+.site-ribbon a:focus-visible {
+  color: #ccecff;
+  text-decoration: underline;
 }
 
 .hero {
