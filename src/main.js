@@ -33,9 +33,11 @@ const RACE_WORLD_HEIGHT = 900;
 const RACE_MODE_TRACK_WIDTH = 120;
 const RACE_MAX_EPISODE_STEPS = 500000;
 const AUTO_TRAIN_SPEED = 25;
+const AUTO_TRAIN_STEP_LIMIT = 3000;
 const AUTO_TRAIN_EPISODE_LIMIT = 500;
 const AUTO_TRAIN_TWO_LAP_TARGET = 2;
 const AUTO_TRAIN_STREAK_LIMIT = 3;
+const AUTO_TRAIN_PRESET_NAME = "AutoTrain Racer";
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
@@ -295,6 +297,7 @@ let deployedRacerId = null;
 let trainingSpeedMultiplier = appSettings.trainingSpeed;
 const autoTrainState = {
   enabled: false,
+  stepsSinceEnabled: 0,
   episodesOnTrack: 0,
   consecutiveTwoLapEpisodes: 0,
   trackKey: ""
@@ -562,6 +565,7 @@ function resetAutoTrainTrackProgress() {
 
 function setAutoTrainEnabled(enabled) {
   autoTrainState.enabled = Boolean(enabled);
+  autoTrainState.stepsSinceEnabled = 0;
   if (autoTrainState.enabled) {
     trainingSpeedMultiplier = AUTO_TRAIN_SPEED;
     ui.setTrainingSpeed(AUTO_TRAIN_SPEED, false);
@@ -597,6 +601,42 @@ function maybeRotateAutoTrainTrack(completedLapCount) {
   }
 
   setTrackFromSeed(randomSeed(), { name: null });
+}
+
+function saveAutoTrainRacerPreset() {
+  const presetName = AUTO_TRAIN_PRESET_NAME;
+  const payload = buildSavedRacerPayload(presetName, currentCarId);
+  const existingIndex = savedRacers.findIndex((item) => item.name === presetName);
+
+  if (existingIndex >= 0) {
+    const existing = savedRacers[existingIndex];
+    const updated = {
+      ...payload,
+      id: existing.id,
+      createdAt: existing.createdAt,
+      updatedAt: Date.now()
+    };
+    savedRacers = persistSavedRacers(savedRacers.map((item, index) => (index === existingIndex ? updated : item)));
+    return;
+  }
+
+  savedRacers = persistSavedRacers([...savedRacers, payload]);
+}
+
+function maybeFinalizeAutoTrainByStepLimit() {
+  if (!autoTrainState.enabled) {
+    return false;
+  }
+
+  autoTrainState.stepsSinceEnabled += 1;
+  if (autoTrainState.stepsSinceEnabled < AUTO_TRAIN_STEP_LIMIT) {
+    return false;
+  }
+
+  saveAutoTrainRacerPreset();
+  setAutoTrainEnabled(false);
+  resetCurrentRacerState({ pauseTraining: true, syncDeployed: false });
+  return true;
 }
 
 function regenerateTrackFromSource() {
@@ -675,6 +715,27 @@ function setTrackFromShape(shapePoints, { name = "Custom Shape" } = {}) {
   return true;
 }
 
+function resetCurrentRacerState({ pauseTraining = false, syncDeployed = true } = {}) {
+  if (syncDeployed) {
+    syncDeployedSavedRacerProgress();
+  }
+
+  agent.resetModel();
+  clearBestReturn();
+  env.clearLapHistory({ resetBestLapCount: true });
+  bestEpisodeReturn = Number.NEGATIVE_INFINITY;
+  episodeNumber = 1;
+  observation = env.resetEpisode(true);
+  currentCarId = DEFAULT_CAR_ID;
+  currentDriverName = "Current Racer";
+  deployedRacerId = null;
+
+  if (pauseTraining) {
+    running = false;
+    ui.setRunning(false);
+  }
+}
+
 function resetEpisode({ countAsNewEpisode = true } = {}) {
   if (countAsNewEpisode) {
     episodeNumber += 1;
@@ -723,6 +784,8 @@ function runOneStep() {
   if (transition.done) {
     handleEpisodeTermination();
   }
+
+  maybeFinalizeAutoTrainByStepLimit();
 }
 
 function canvasEventToWorldPoint(event) {
@@ -927,16 +990,7 @@ async function handleNewRacerRequest() {
     return;
   }
 
-  syncDeployedSavedRacerProgress();
-  agent.resetModel();
-  clearBestReturn();
-  env.clearLapHistory({ resetBestLapCount: true });
-  bestEpisodeReturn = Number.NEGATIVE_INFINITY;
-  episodeNumber = 1;
-  observation = env.resetEpisode(true);
-  currentCarId = DEFAULT_CAR_ID;
-  currentDriverName = "Current Racer";
-  deployedRacerId = null;
+  resetCurrentRacerState({ pauseTraining: false, syncDeployed: true });
 }
 
 async function handleCarPickerRequest() {
@@ -2785,6 +2839,10 @@ function loop(timestamp) {
       const stepStart = performance.now();
       runOneStep();
       lastStepMs = performance.now() - stepStart;
+      if (!running) {
+        accumulatorMs = 0;
+        break;
+      }
       accumulatorMs -= fixedStepMs;
       processedSteps += 1;
     }
