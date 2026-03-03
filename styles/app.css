@@ -168,7 +168,7 @@ select:focus-visible {
 .hero-actions {
   margin-left: auto;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: flex-end;
 }
 
@@ -1495,7 +1495,7 @@ select:focus-visible {
 
   .hero-actions {
     justify-self: end;
-    align-self: start;
+    align-self: center;
     margin-left: 0;
   }
 
