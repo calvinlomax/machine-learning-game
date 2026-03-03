@@ -6,7 +6,7 @@ import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
 import { NpcController, NPC_PROFILES } from "./npc.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=track-metrics-20260227";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=advanced-training-panel-20260303";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,

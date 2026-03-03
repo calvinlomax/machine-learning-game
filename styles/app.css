@@ -1182,6 +1182,12 @@ select:focus-visible {
   width: min(94vw, 640px);
 }
 
+.advanced-training-modal {
+  width: min(95vw, 760px);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+}
+
 .car-option-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

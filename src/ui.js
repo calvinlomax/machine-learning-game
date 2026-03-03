@@ -195,6 +195,17 @@ const PARAM_DEFS = [
   }
 ];
 
+const PRIMARY_PARAM_IDS = new Set([
+  "actionSmoothing",
+  "progressRewardWeight",
+  "offTrackPenalty",
+  "speedPenaltyWeight"
+]);
+
+const PRIMARY_PARAM_DEFS = PARAM_DEFS.filter((def) => PRIMARY_PARAM_IDS.has(def.id));
+const ADVANCED_PARAM_DEFS = PARAM_DEFS.filter((def) => !PRIMARY_PARAM_IDS.has(def.id));
+const PARAM_DEF_BY_ID = new Map(PARAM_DEFS.map((def) => [def.id, def]));
+
 export const DEFAULT_HYPERPARAMS = Object.freeze(
   PARAM_DEFS.reduce((acc, def) => {
     acc[def.id] = def.defaultValue;
@@ -244,7 +255,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     trainingSpeedSlider: document.getElementById("train-speed-slider"),
     trainingSpeedValue: document.getElementById("train-speed-value"),
     seedInput: document.getElementById("seed-input"),
-    resetDefaultsBtn: document.getElementById("reset-defaults-btn"),
+    advancedTrainingBtn: document.getElementById("advanced-training-btn"),
     toggleSensors: document.getElementById("toggle-sensors"),
     toggleTrail: document.getElementById("toggle-trail"),
     toggleAutoTrain: document.getElementById("toggle-auto-train"),
@@ -341,6 +352,16 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     backdrop: document.querySelector("#settings-modal-root .modal-backdrop")
   };
 
+  const advancedTrainingModal = {
+    root: document.getElementById("advanced-training-modal-root"),
+    dialog: document.querySelector("#advanced-training-modal-root .advanced-training-modal"),
+    sliderContainer: document.getElementById("advanced-training-sliders"),
+    cancelBtn: document.getElementById("advanced-training-cancel-btn"),
+    resetBtn: document.getElementById("advanced-training-reset-btn"),
+    saveBtn: document.getElementById("advanced-training-save-btn"),
+    backdrop: document.querySelector("#advanced-training-modal-root .modal-backdrop")
+  };
+
   const handlers = {
     onStartPause: () => {},
     onStep: () => {},
@@ -380,83 +401,202 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     uiTheme: initialSettings?.uiTheme === "dark" ? "dark" : "light"
   };
   const sliderControls = new Map();
+  const advancedSliderControls = new Map();
+  let advancedDraftHyperparams = null;
 
   function notifyHyperparamChange() {
     handlers.onHyperparamsChange({ ...hyperparams });
   }
 
-  function refreshSlider(def) {
-    const control = sliderControls.get(def.id);
+  function refreshSliderControl(def, controlsMap, values) {
+    const control = controlsMap.get(def.id);
     if (!control) {
       return;
     }
 
-    const value = sanitizeValue(def, hyperparams[def.id]);
-    hyperparams[def.id] = value;
+    const nextValues = values || hyperparams;
+    const value = sanitizeValue(def, nextValues[def.id]);
+    nextValues[def.id] = value;
 
     const sliderValue = def.toSliderValue ? def.toSliderValue(value) : value;
     control.input.value = String(sliderValue);
     control.output.textContent = def.format ? def.format(value) : String(value);
   }
 
-  function refreshAllSliders() {
-    for (let i = 0; i < PARAM_DEFS.length; i += 1) {
-      refreshSlider(PARAM_DEFS[i]);
+  function refreshPrimarySliders() {
+    for (let i = 0; i < PRIMARY_PARAM_DEFS.length; i += 1) {
+      refreshSliderControl(PRIMARY_PARAM_DEFS[i], sliderControls, hyperparams);
     }
   }
 
-  function buildSliderPanel() {
+  function refreshAdvancedSliders() {
+    if (!advancedDraftHyperparams) {
+      return;
+    }
+
+    for (let i = 0; i < ADVANCED_PARAM_DEFS.length; i += 1) {
+      refreshSliderControl(ADVANCED_PARAM_DEFS[i], advancedSliderControls, advancedDraftHyperparams);
+    }
+  }
+
+  function createSliderRow(def, idPrefix) {
+    const row = document.createElement("div");
+    row.className = "slider-row";
+
+    const label = document.createElement("label");
+    label.setAttribute("for", `${idPrefix}-${def.id}`);
+    label.textContent = def.label;
+
+    const output = document.createElement("output");
+    output.setAttribute("for", `${idPrefix}-${def.id}`);
+
+    const input = document.createElement("input");
+    input.type = "range";
+    input.id = `${idPrefix}-${def.id}`;
+    input.min = String(def.slider?.min ?? def.min);
+    input.max = String(def.slider?.max ?? def.max);
+    input.step = String(def.slider?.step ?? def.step ?? 0.01);
+
+    row.append(label, output, input);
+    return { row, input, output };
+  }
+
+  function buildPrimarySliderPanel() {
+    if (!elements.sliderContainer) {
+      return;
+    }
+
     elements.sliderContainer.innerHTML = "";
+    sliderControls.clear();
 
-    for (let i = 0; i < PARAM_DEFS.length; i += 1) {
-      const def = PARAM_DEFS[i];
-      const row = document.createElement("div");
-      row.className = "slider-row";
-
-      const label = document.createElement("label");
-      label.setAttribute("for", `slider-${def.id}`);
-      label.textContent = def.label;
-
-      const output = document.createElement("output");
-      output.setAttribute("for", `slider-${def.id}`);
-
-      const input = document.createElement("input");
-      input.type = "range";
-      input.id = `slider-${def.id}`;
-      input.min = String(def.slider?.min ?? def.min);
-      input.max = String(def.slider?.max ?? def.max);
-      input.step = String(def.slider?.step ?? def.step ?? 0.01);
-
-      row.append(label, output, input);
+    for (let i = 0; i < PRIMARY_PARAM_DEFS.length; i += 1) {
+      const def = PRIMARY_PARAM_DEFS[i];
+      const { row, input, output } = createSliderRow(def, "training-slider");
       elements.sliderContainer.appendChild(row);
-
       sliderControls.set(def.id, { input, output });
 
       input.addEventListener("input", () => {
         const sliderValue = Number(input.value);
         const rawValue = def.fromSliderValue ? def.fromSliderValue(sliderValue) : sliderValue;
         hyperparams[def.id] = sanitizeValue(def, rawValue);
-
-        if (def.id === "epsilonStart" && hyperparams.epsilonMin > hyperparams.epsilonStart) {
-          hyperparams.epsilonMin = hyperparams.epsilonStart;
-          refreshSlider(PARAM_DEFS.find((item) => item.id === "epsilonMin"));
-        }
-
-        if (def.id === "epsilonMin" && hyperparams.epsilonMin > hyperparams.epsilonStart) {
-          hyperparams.epsilonMin = hyperparams.epsilonStart;
-        }
-
-        refreshSlider(def);
+        refreshSliderControl(def, sliderControls, hyperparams);
         notifyHyperparamChange();
       });
     }
 
-    refreshAllSliders();
+    refreshPrimarySliders();
+  }
+
+  function buildAdvancedSliderPanel() {
+    if (!advancedTrainingModal.sliderContainer) {
+      return;
+    }
+
+    advancedTrainingModal.sliderContainer.innerHTML = "";
+    advancedSliderControls.clear();
+
+    for (let i = 0; i < ADVANCED_PARAM_DEFS.length; i += 1) {
+      const def = ADVANCED_PARAM_DEFS[i];
+      const { row, input, output } = createSliderRow(def, "advanced-slider");
+      advancedTrainingModal.sliderContainer.appendChild(row);
+      advancedSliderControls.set(def.id, { input, output });
+
+      input.addEventListener("input", () => {
+        if (!advancedDraftHyperparams) {
+          advancedDraftHyperparams = { ...hyperparams };
+        }
+
+        const sliderValue = Number(input.value);
+        const rawValue = def.fromSliderValue ? def.fromSliderValue(sliderValue) : sliderValue;
+        advancedDraftHyperparams[def.id] = sanitizeValue(def, rawValue);
+
+        if (def.id === "epsilonStart" && advancedDraftHyperparams.epsilonMin > advancedDraftHyperparams.epsilonStart) {
+          advancedDraftHyperparams.epsilonMin = advancedDraftHyperparams.epsilonStart;
+          const epsilonMinDef = PARAM_DEF_BY_ID.get("epsilonMin");
+          if (epsilonMinDef) {
+            refreshSliderControl(epsilonMinDef, advancedSliderControls, advancedDraftHyperparams);
+          }
+        }
+
+        if (def.id === "epsilonMin" && advancedDraftHyperparams.epsilonMin > advancedDraftHyperparams.epsilonStart) {
+          advancedDraftHyperparams.epsilonMin = advancedDraftHyperparams.epsilonStart;
+        }
+
+        refreshSliderControl(def, advancedSliderControls, advancedDraftHyperparams);
+      });
+    }
+  }
+
+  function openAdvancedTrainingModal() {
+    clearDanglingModalState();
+
+    if (
+      !hasModalElements(advancedTrainingModal, [
+        "root",
+        "dialog",
+        "sliderContainer",
+        "cancelBtn",
+        "resetBtn",
+        "saveBtn"
+      ])
+    ) {
+      window.alert("Advanced controls are unavailable in this build. Reload and try again.");
+      return;
+    }
+
+    if (modalOpen) {
+      if (activeModal === "advanced-training") {
+        return;
+      }
+      closeModal(false);
+    }
+
+    advancedDraftHyperparams = { ...hyperparams };
+    refreshAdvancedSliders();
+
+    modalOpen = true;
+    activeModal = "advanced-training";
+    previousFocused = document.activeElement;
+    advancedTrainingModal.root.hidden = false;
+
+    requestAnimationFrame(() => {
+      const firstInput = advancedTrainingModal.sliderContainer?.querySelector("input");
+      (firstInput || advancedTrainingModal.cancelBtn || advancedTrainingModal.dialog).focus();
+    });
+  }
+
+  function resetAdvancedDraftToDefaults() {
+    if (!advancedDraftHyperparams) {
+      advancedDraftHyperparams = { ...hyperparams };
+    }
+
+    for (let i = 0; i < ADVANCED_PARAM_DEFS.length; i += 1) {
+      const def = ADVANCED_PARAM_DEFS[i];
+      advancedDraftHyperparams[def.id] = DEFAULT_HYPERPARAMS[def.id];
+    }
+    advancedDraftHyperparams = clampHyperparams(advancedDraftHyperparams);
+    refreshAdvancedSliders();
+  }
+
+  function saveAdvancedHyperparams() {
+    const draft = advancedDraftHyperparams || { ...hyperparams };
+    const merged = { ...hyperparams };
+    for (let i = 0; i < ADVANCED_PARAM_DEFS.length; i += 1) {
+      const def = ADVANCED_PARAM_DEFS[i];
+      merged[def.id] = draft[def.id];
+    }
+    setHyperparams(merged, true);
+    closeModal(true);
   }
 
   function setHyperparams(nextValues, notify = false) {
     hyperparams = clampHyperparams(nextValues);
-    refreshAllSliders();
+    refreshPrimarySliders();
+
+    if (activeModal === "advanced-training") {
+      advancedDraftHyperparams = { ...hyperparams };
+      refreshAdvancedSliders();
+    }
 
     if (notify) {
       notifyHyperparamChange();
@@ -796,8 +936,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     const carVisible = carModal.root && !carModal.root.hidden;
     const racerVisible = racerModal.root && !racerModal.root.hidden;
     const settingsVisible = settingsModal.root && !settingsModal.root.hidden;
+    const advancedVisible = advancedTrainingModal.root && !advancedTrainingModal.root.hidden;
 
-    if (!confirmVisible && !trackVisible && !carVisible && !racerVisible && !settingsVisible) {
+    if (!confirmVisible && !trackVisible && !carVisible && !racerVisible && !settingsVisible && !advancedVisible) {
       modalOpen = false;
       activeModal = null;
       modalResolver = null;
@@ -820,6 +961,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     if (activeModal === "settings") {
       return settingsModal.dialog;
     }
+    if (activeModal === "advanced-training") {
+      return advancedTrainingModal.dialog;
+    }
     return null;
   }
 
@@ -841,6 +985,9 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
       if (settingsModal.helpPop) {
         settingsModal.helpPop.hidden = true;
       }
+    } else if (activeModal === "advanced-training") {
+      advancedTrainingModal.root.hidden = true;
+      advancedDraftHyperparams = null;
     }
 
     modalOpen = false;
@@ -1466,6 +1613,16 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
       submitSettingsModal();
     }
   });
+  advancedTrainingModal.cancelBtn?.addEventListener("click", () => closeModal(false));
+  advancedTrainingModal.resetBtn?.addEventListener("click", resetAdvancedDraftToDefaults);
+  advancedTrainingModal.saveBtn?.addEventListener("click", saveAdvancedHyperparams);
+  advancedTrainingModal.backdrop?.addEventListener("click", () => closeModal(false));
+  advancedTrainingModal.dialog?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      saveAdvancedHyperparams();
+    }
+  });
 
   applyTheme(settings.uiTheme);
 
@@ -1491,10 +1648,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
   });
   elements.drawTrackFinishBtn?.addEventListener("click", () => handlers.onFinishDrawTrack());
   elements.drawTrackCancelBtn?.addEventListener("click", () => handlers.onCancelDrawTrack());
-
-  elements.resetDefaultsBtn?.addEventListener("click", () => {
-    setHyperparams(DEFAULT_HYPERPARAMS, true);
-  });
+  elements.advancedTrainingBtn?.addEventListener("click", openAdvancedTrainingModal);
 
   elements.teamNameDisplay?.addEventListener("click", beginTeamNameEdit);
   elements.teamNameDisplay?.addEventListener("keydown", (event) => {
@@ -1523,7 +1677,8 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     }
   });
 
-  buildSliderPanel();
+  buildPrimarySliderPanel();
+  buildAdvancedSliderPanel();
   setTrainingSpeed(trainingSpeed, false);
   setAutoTrainEnabled(false, false);
   setSavedRacers([], []);

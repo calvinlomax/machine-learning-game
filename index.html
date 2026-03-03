@@ -118,7 +118,7 @@
       <section class="surface training" aria-label="Training settings">
         <div class="training-head">
           <h2>Training</h2>
-          <button id="reset-defaults-btn">Reset Defaults</button>
+          <button id="advanced-training-btn">Advanced</button>
         </div>
         <p class="training-note">Epsilon decay is applied once at the end of each episode.</p>
         <div id="training-sliders" class="sliders"></div>
@@ -232,6 +232,26 @@
       </div>
     </div>
 
+    <div id="advanced-training-modal-root" class="modal-root" hidden>
+      <div class="modal-backdrop"></div>
+      <div
+        class="modal advanced-training-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="advanced-training-modal-title"
+        tabindex="-1"
+      >
+        <h2 id="advanced-training-modal-title">Advanced Hyperparameters</h2>
+        <p>Adjust additional training settings. Changes apply when you press Save.</p>
+        <div id="advanced-training-sliders" class="sliders"></div>
+        <div class="modal-actions">
+          <button id="advanced-training-cancel-btn" type="button">Cancel</button>
+          <button id="advanced-training-reset-btn" type="button">Reset Defaults</button>
+          <button id="advanced-training-save-btn" type="button" class="primary">Save</button>
+        </div>
+      </div>
+    </div>
+
     <div id="racer-modal-root" class="modal-root" hidden>
       <div class="modal-backdrop"></div>
       <div class="modal" role="dialog" aria-modal="true" aria-labelledby="racer-modal-title" tabindex="-1">
@@ -334,6 +354,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=auto-train-tuner-20260303"></script>
+    <script type="module" src="./src/main.js?v=advanced-training-panel-20260303"></script>
   </body>
 </html>
