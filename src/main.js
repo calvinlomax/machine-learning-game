@@ -6,7 +6,7 @@ import { ACTIONS } from "./physics.js";
 import { createRenderer } from "./render.js";
 import { CAR_PRESETS, DEFAULT_CAR_ID } from "./cars.js";
 import { NpcController, NPC_PROFILES } from "./npc.js";
-import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=panel-layout-sync-20260303";
+import { DEFAULT_HYPERPARAMS, clampHyperparams, createUI } from "./ui.js?v=theme-sync-20260303";
 import { randomBizzaroName } from "./names.js";
 import {
   clearBestReturn,
@@ -59,7 +59,7 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
   trackColor: "#576f57",
   canvasBgColor: "#1b2b2f",
   canvasPattern: "diagonal",
-  uiTheme: "light",
+  uiTheme: "dark",
   trainingSpeed: 1,
   autoParamEnabled: false
 });
@@ -95,7 +95,7 @@ function sanitizeAppSettings(input) {
     trackColor: sanitizeColor(source.trackColor, DEFAULT_APP_SETTINGS.trackColor),
     canvasBgColor: sanitizeColor(source.canvasBgColor, DEFAULT_APP_SETTINGS.canvasBgColor),
     canvasPattern: allowedPatterns.has(source.canvasPattern) ? source.canvasPattern : "diagonal",
-    uiTheme: source.uiTheme === "dark" ? "dark" : "light",
+    uiTheme: source.uiTheme === "light" ? "light" : "dark",
     trainingSpeed: Math.round(clamp(Number(source.trainingSpeed) || 1, 1, 25)),
     autoParamEnabled: Boolean(source.autoParamEnabled)
   };

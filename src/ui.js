@@ -403,7 +403,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
     trackColor: sanitizeColor(initialSettings?.trackColor, "#576f57"),
     canvasBgColor: sanitizeColor(initialSettings?.canvasBgColor, "#1b2b2f"),
     canvasPattern: initialSettings?.canvasPattern || "diagonal",
-    uiTheme: initialSettings?.uiTheme === "dark" ? "dark" : "light"
+    uiTheme: initialSettings?.uiTheme === "light" ? "light" : "dark"
   };
   const sliderControls = new Map();
   const advancedSliderControls = new Map();
@@ -1561,7 +1561,7 @@ export function createUI({ initialHyperparams, initialSeed, initialTeamName, ini
       trackColor: sanitizeColor(input?.trackColor, settings.trackColor || "#576f57"),
       canvasBgColor: sanitizeColor(input?.canvasBgColor, settings.canvasBgColor || "#1b2b2f"),
       canvasPattern: allowedPatterns.has(input?.canvasPattern) ? input.canvasPattern : "diagonal",
-      uiTheme: input?.uiTheme === "dark" ? "dark" : "light"
+      uiTheme: input?.uiTheme === "light" ? "light" : "dark"
     };
   }
 

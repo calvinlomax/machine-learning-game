@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ML Racer</title>
+    <script>
+      (function () {
+        try {
+          const raw = localStorage.getItem("ml-racer-app-settings-v1");
+          const parsed = raw ? JSON.parse(raw) : null;
+          const theme = parsed && parsed.uiTheme === "light" ? "light" : "dark";
+          document.documentElement.dataset.theme = theme;
+        } catch {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="./styles/app.css" />
   </head>
@@ -16,7 +28,7 @@
           <p class="kicker">Tip: let the driver learn for a while before changing hyperparameters, it may surpise you.</p>
         </div>
         <div class="hero-actions">
-          <a id="learn-btn" class="learn-btn" href="./learn.html">Learn</a>
+          <a id="learn-btn" class="learn-btn" href="./machine-learning-game/learn.html">Learn</a>
         </div>
       </header>
 
@@ -358,6 +370,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=learn-page-20260303"></script>
+    <script type="module" src="./src/main.js?v=theme-sync-20260303"></script>
   </body>
 </html>

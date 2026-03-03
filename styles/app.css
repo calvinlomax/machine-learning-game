@@ -1489,7 +1489,7 @@ select:focus-visible {
   .hero {
     grid-column: 1 / -1;
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: start;
   }
 
@@ -1497,6 +1497,11 @@ select:focus-visible {
     justify-self: end;
     align-self: start;
     margin-left: 0;
+  }
+
+  .hero-main h1 {
+    white-space: nowrap;
+    font-size: clamp(1.1rem, 2.2vw, 2rem);
   }
 
   .canvas-surface {

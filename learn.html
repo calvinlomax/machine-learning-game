@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Learn the Concepts | ML Racer</title>
+    <script>
+      (function () {
+        try {
+          const raw = localStorage.getItem("ml-racer-app-settings-v1");
+          const parsed = raw ? JSON.parse(raw) : null;
+          const theme = parsed && parsed.uiTheme === "light" ? "light" : "dark";
+          document.documentElement.dataset.theme = theme;
+        } catch {
+          document.documentElement.dataset.theme = "dark";
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="stylesheet" href="./styles/learn.css" />
   </head>
@@ -18,7 +30,7 @@
             Move the sliders and buttons to see what changes.
           </p>
         </div>
-        <a id="learn-back-btn" class="btn primary" href="./">Back to Simulator</a>
+        <a id="learn-back-btn" class="btn primary" href="./machine-learning-game/">Back to Simulator</a>
       </header>
 
       <nav class="surface concept-nav" aria-label="Concept quick links">
@@ -177,6 +189,6 @@
       </section>
     </main>
 
-    <script type="module" src="./src/learn.js?v=learn-page-20260303"></script>
+    <script type="module" src="./src/learn.js?v=theme-sync-20260303"></script>
   </body>
 </html>

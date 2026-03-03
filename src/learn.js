@@ -1,5 +1,18 @@
 const BASE_URL = import.meta.env?.BASE_URL ?? "/";
 
+function applyStoredTheme() {
+  try {
+    const raw = window.localStorage.getItem("ml-racer-app-settings-v1");
+    const parsed = raw ? JSON.parse(raw) : null;
+    const theme = parsed && parsed.uiTheme === "light" ? "light" : "dark";
+    document.documentElement.dataset.theme = theme;
+  } catch {
+    document.documentElement.dataset.theme = "dark";
+  }
+}
+
+applyStoredTheme();
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
