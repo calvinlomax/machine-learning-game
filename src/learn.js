@@ -25,6 +25,7 @@ function resolveBaseUrl(configuredBase) {
 }
 
 const BASE_URL = resolveBaseUrl(import.meta.env?.BASE_URL ?? "/");
+const SIMULATOR_URL = "https://calvinlomax.github.io/machine-learning-game/";
 
 function applyStoredTheme() {
   try {
@@ -49,7 +50,7 @@ function formatNumber(value, digits = 2) {
 
 const backBtn = document.getElementById("learn-back-btn");
 if (backBtn instanceof HTMLAnchorElement) {
-  backBtn.href = BASE_URL;
+  backBtn.href = SIMULATOR_URL;
 }
 
 function setupSensorConcept() {
