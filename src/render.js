@@ -193,13 +193,25 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     ctx.restore();
   }
 
-  function drawTrail(trail) {
+  function parseHexColor(hexColor, alpha = 1) {
+    const safe = String(hexColor || "").replace("#", "");
+    const expanded = safe.length === 3 ? safe.replace(/(.)/g, "$1$1") : safe;
+    if (!/^[0-9a-fA-F]{6}$/.test(expanded)) {
+      return `rgba(255, 196, 77, ${alpha})`;
+    }
+    const r = parseInt(expanded.slice(0, 2), 16);
+    const g = parseInt(expanded.slice(2, 4), 16);
+    const b = parseInt(expanded.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function drawTrail(trail, color) {
     if (!trail || trail.length < 2) {
       return;
     }
 
     ctx.lineWidth = 1.8;
-    ctx.strokeStyle = "rgba(255, 196, 77, 0.55)";
+    ctx.strokeStyle = color || "rgba(255, 196, 77, 0.55)";
     drawPolyline(ctx, trail, false);
     ctx.stroke();
   }
@@ -377,6 +389,7 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     cars,
     trails,
     carStyles,
+    trailColors,
     sensorHits,
     showSensors,
     showTrail,
@@ -390,14 +403,18 @@ export function createRenderer(canvas, { worldWidth = 900, worldHeight = 600 } =
     const multiCars = Array.isArray(cars) && cars.length > 0 ? cars : null;
     const multiTrails = Array.isArray(trails) ? trails : [];
     const multiCarStyles = Array.isArray(carStyles) ? carStyles : [];
+    const multiTrailColors = Array.isArray(trailColors) ? trailColors : [];
 
     if (showTrail) {
       if (multiCars) {
         for (let i = 0; i < multiCars.length; i += 1) {
-          drawTrail(multiTrails[i]);
+          const style = multiCarStyles[i] || carStyle || DEFAULT_CAR_STYLE;
+          const fallbackColor = parseHexColor(style.primary, 0.5);
+          drawTrail(multiTrails[i], multiTrailColors[i] || fallbackColor);
         }
       } else {
-        drawTrail(trail);
+        const style = carStyle || DEFAULT_CAR_STYLE;
+        drawTrail(trail, parseHexColor(style.primary, 0.55));
       }
     }
     if (showSensors && !multiCars) {

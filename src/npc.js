@@ -132,35 +132,35 @@ export const NPC_PROFILES = Object.freeze([
     name: "Rook Velo",
     level: 1,
     tier: "Cadet",
-    carStyle: { primary: "#3c6ea8", secondary: "#0f1e2e", accent: "#b8d8ff" }
+    carStyle: { primary: "#8A4B2E", secondary: "#25130D", accent: "#F2C69A" }
   },
   {
     id: "npc-club",
     name: "Pico Drift",
     level: 2,
     tier: "Club",
-    carStyle: { primary: "#6d7f1b", secondary: "#1f2a0a", accent: "#e8f18e" }
+    carStyle: { primary: "#2A8B78", secondary: "#0B2D27", accent: "#9DE7D9" }
   },
   {
     id: "npc-pro",
     name: "Nova Kline",
     level: 3,
     tier: "Pro",
-    carStyle: { primary: "#c14a29", secondary: "#35120a", accent: "#ffd4b5" }
+    carStyle: { primary: "#B34C87", secondary: "#2F1226", accent: "#F5BEE0" }
   },
   {
     id: "npc-elite",
     name: "Astra Quell",
     level: 4,
     tier: "Elite",
-    carStyle: { primary: "#7d3cb8", secondary: "#250d38", accent: "#dcc0ff" }
+    carStyle: { primary: "#6C8E2A", secondary: "#1E2A0D", accent: "#DFF0A8" }
   },
   {
     id: "npc-legend",
     name: "Vortex Prime",
     level: 5,
     tier: "Legend",
-    carStyle: { primary: "#00a99b", secondary: "#062a28", accent: "#b9fff9" }
+    carStyle: { primary: "#C17C1A", secondary: "#2D1A07", accent: "#F6DCA6" }
   }
 ]);
 

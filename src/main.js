@@ -28,7 +28,10 @@ const BASE_URL = import.meta.env?.BASE_URL ?? "/";
 const DEFAULT_TEAM_NAME = "ML1 Academy";
 const MAX_SAVED_RACERS = 4;
 const MAX_SAVED_TRACKS = 8;
+const RACE_WORLD_WIDTH = 1600;
+const RACE_WORLD_HEIGHT = 1200;
 const RACE_MODE_TRACK_WIDTH = 120;
+const RACE_MAX_EPISODE_STEPS = 500000;
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
@@ -164,6 +167,7 @@ const raceModeElements = {
   startBtn: document.getElementById("race-mode-start-btn"),
   trackBtn: document.getElementById("race-mode-track-btn"),
   chooseBtn: document.getElementById("race-mode-choose-btn"),
+  withdrawBtn: document.getElementById("race-mode-withdraw-btn"),
   endBtn: document.getElementById("race-mode-end-btn"),
   exitBtn: document.getElementById("race-mode-exit-btn"),
   placeList: document.getElementById("race-place-list"),
@@ -203,11 +207,11 @@ const renderer = createRenderer(canvas, {
   worldHeight: appSettings.worldHeight
 });
 const raceRenderer = createRenderer(raceCanvas, {
-  worldWidth: appSettings.worldWidth,
-  worldHeight: appSettings.worldHeight
+  worldWidth: RACE_WORLD_WIDTH,
+  worldHeight: RACE_WORLD_HEIGHT
 });
 renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
-raceRenderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
+raceRenderer.setWorldSize(RACE_WORLD_WIDTH, RACE_WORLD_HEIGHT);
 
 const persistedHyperparams = loadHyperparams();
 let hyperparams = clampHyperparams({
@@ -289,8 +293,8 @@ const presetById = new Map(TRACK_PRESETS.map((preset) => [preset.id, preset]));
 let raceTrackPresetId = TRACK_PRESETS[0]?.id || null;
 let raceTrackLabel = TRACK_PRESETS[0]?.name || `Seed ${currentSeed}`;
 let raceTrack = generateTrack(TRACK_PRESETS[0]?.seed ?? currentSeed, {
-  worldWidth: appSettings.worldWidth,
-  worldHeight: appSettings.worldHeight,
+  worldWidth: RACE_WORLD_WIDTH,
+  worldHeight: RACE_WORLD_HEIGHT,
   trackWidth: RACE_MODE_TRACK_WIDTH
 });
 
@@ -554,7 +558,6 @@ function applyAppSettings(nextSettings, { regenerateTrack = false } = {}) {
   });
 
   renderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
-  raceRenderer.setWorldSize(appSettings.worldWidth, appSettings.worldHeight);
   ui.setSettings(appSettings);
   ui.applyTheme(appSettings.uiTheme);
   trainingSpeedMultiplier = appSettings.trainingSpeed;
@@ -1301,8 +1304,8 @@ function applyRaceTrackPreset(presetId, options = {}) {
   raceTrackLabel = preset?.name || `Seed ${normalizeSeed(clampSeedInput(chosenSeed))}`;
 
   raceTrack = generateTrack(chosenSeed, {
-    worldWidth: appSettings.worldWidth,
-    worldHeight: appSettings.worldHeight,
+    worldWidth: RACE_WORLD_WIDTH,
+    worldHeight: RACE_WORLD_HEIGHT,
     trackWidth: RACE_MODE_TRACK_WIDTH
   });
   raceModeState.targetLaps = computeRaceTargetLaps(raceTrack);
@@ -1509,15 +1512,25 @@ function renderRacePlaceList() {
     const head = document.createElement("div");
     head.className = "race-place-head";
 
+    const nameWrap = document.createElement("div");
+    nameWrap.className = "race-place-name-wrap";
+
+    const swatch = document.createElement("span");
+    swatch.className = "race-place-swatch";
+    swatch.style.setProperty("--car-primary", participant.carStyle?.primary || "#6E737A");
+    swatch.style.setProperty("--car-secondary", participant.carStyle?.secondary || "#121212");
+    swatch.style.setProperty("--car-accent", participant.carStyle?.accent || "#C9CDD2");
+
     const name = document.createElement("div");
     name.className = "race-place-name";
     name.textContent = participant.name;
+    nameWrap.append(swatch, name);
 
     const rank = document.createElement("div");
     rank.className = "race-place-rank";
     rank.textContent = `${i + 1}${i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"}`;
 
-    head.append(name, rank);
+    head.append(nameWrap, rank);
 
     const laps = document.createElement("div");
     laps.className = "race-place-laps";
@@ -1650,7 +1663,7 @@ function createRaceParticipant(savedRacer, index) {
     track: raceTrack,
     rng: raceEnvRng,
     dt: env.dt,
-    maxEpisodeSteps: Math.max(200, sourceHyperparams.maxEpisodeSteps),
+    maxEpisodeSteps: RACE_MAX_EPISODE_STEPS,
     actionSmoothing: sourceHyperparams.actionSmoothing,
     rewardWeights: {
       progressWeight: sourceHyperparams.progressRewardWeight,
@@ -1711,7 +1724,7 @@ function createNpcRaceParticipant(profile, index) {
     track: raceTrack,
     rng: raceEnvRng,
     dt: env.dt,
-    maxEpisodeSteps: 2400,
+    maxEpisodeSteps: RACE_MAX_EPISODE_STEPS,
     actionSmoothing: 0.42,
     rewardWeights: {
       progressWeight: 1.8,
@@ -1818,6 +1831,20 @@ function withdrawSavedRaceParticipant(racerId) {
     setRaceRunning(false);
   }
 
+  updateRaceControlState();
+  updateRaceRacerCards();
+  renderRacePlaceList();
+}
+
+function withdrawAllRaceParticipants() {
+  if (!raceModeState.active || raceModeState.modalOpen) {
+    return;
+  }
+
+  raceModeState.participants = [];
+  raceModeState.elapsedSec = 0;
+  raceModeState.accumulatorMs = 0;
+  setRaceRunning(false);
   updateRaceControlState();
   updateRaceRacerCards();
   renderRacePlaceList();
@@ -1997,16 +2024,6 @@ function stepRaceParticipants() {
         participant.status = "Finished";
         continue;
       }
-
-      // Reset per-lap to avoid episode caps for non-stuck drivers.
-      participant.status = "Lap reset";
-      participant.episodeCount += 1;
-      participant.observation = participant.env.resetEpisode(true);
-      participant.renderState = participant.env.getRenderState();
-      participant.lastEnvLapCount = 0;
-      participant.progress = 0;
-      participant.currentLapTimeSec = 0;
-      continue;
     }
 
     if (isNpcRaceParticipant(participant) && participant.level >= 2) {
@@ -2021,15 +2038,6 @@ function stepRaceParticipants() {
           participant.status = "Finished";
           continue;
         }
-
-        participant.status = "Lap reset";
-        participant.episodeCount += 1;
-        participant.observation = participant.env.resetEpisode(true);
-        participant.renderState = participant.env.getRenderState();
-        participant.lastEnvLapCount = 0;
-        participant.progress = 0;
-        participant.currentLapTimeSec = 0;
-        continue;
       }
     }
 
@@ -2070,6 +2078,7 @@ function renderRaceFrame() {
   const trails = [];
   const cars = [];
   const carStyles = [];
+  const trailColors = [];
 
   for (let i = 0; i < raceModeState.participants.length; i += 1) {
     const participant = raceModeState.participants[i];
@@ -2078,12 +2087,14 @@ function renderRaceFrame() {
     trails.push(renderState.trail);
     cars.push(renderState.car);
     carStyles.push(participant.carStyle);
+    trailColors.push(participant.carStyle?.primary || "#f49b2c");
   }
 
   raceRenderer.render({
     track: raceTrack,
     cars,
     trails,
+    trailColors,
     showTrail: true,
     showSensors: false,
     carStyles,
@@ -2437,6 +2448,10 @@ raceModeElements.chooseBtn?.addEventListener("click", () => {
     return;
   }
   openRaceChooseModal();
+});
+
+raceModeElements.withdrawBtn?.addEventListener("click", () => {
+  withdrawAllRaceParticipants();
 });
 
 raceModeElements.trackBtn?.addEventListener("click", () => {

@@ -789,6 +789,55 @@ select:focus-visible {
   gap: 0.45rem;
 }
 
+.race-place-name-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-width: 0;
+}
+
+.race-place-swatch {
+  --car-primary: #6e737a;
+  --car-secondary: #121212;
+  --car-accent: #c9cdd2;
+  width: 24px;
+  height: 11px;
+  border-radius: 0.28rem;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  clip-path: polygon(
+    0% 50%,
+    8% 34%,
+    23% 30%,
+    36% 27%,
+    68% 27%,
+    82% 30%,
+    92% 34%,
+    100% 50%,
+    92% 66%,
+    82% 70%,
+    68% 73%,
+    36% 73%,
+    23% 70%,
+    8% 66%
+  );
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0 7%,
+      var(--car-accent) 7% 12%,
+      transparent 12% 88%,
+      var(--car-accent) 88% 93%,
+      transparent 93% 100%
+    ),
+    linear-gradient(
+      90deg,
+      var(--car-secondary) 0 24%,
+      var(--car-primary) 24% 76%,
+      var(--car-secondary) 76% 100%
+    );
+  flex: 0 0 auto;
+}
+
 .race-place-name,
 .race-racer-name {
   font-size: 0.82rem;
