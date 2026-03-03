@@ -717,14 +717,31 @@ select:focus-visible {
 
 .race-mode-controls {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.race-controls-left,
+.race-controls-right {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.race-controls-right {
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .race-mode-controls button {
   min-height: 1.8rem;
   padding: 0.24rem 0.52rem;
   font-size: 0.78rem;
+}
+
+.race-controls-left button {
+  width: 122px;
 }
 
 .race-main-layout {
@@ -965,11 +982,16 @@ select:focus-visible {
   border-radius: 0.55rem;
   background: var(--surface);
   color: var(--text);
+  display: grid;
+  gap: 0.32rem;
+  padding: 0.42rem 0.5rem;
+}
+
+.race-choose-main {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.42rem 0.5rem;
+  gap: 0.4rem;
 }
 
 .race-choose-item label {
@@ -980,9 +1002,34 @@ select:focus-visible {
   color: var(--text);
 }
 
+.race-choose-name {
+  font-weight: 650;
+}
+
 .race-choose-item small {
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.race-choose-stats {
+  display: grid;
+  gap: 0.18rem;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.race-choose-colors {
+  display: flex;
+  align-items: center;
+  gap: 0.22rem;
+  flex-wrap: wrap;
+}
+
+.race-choose-color-chip {
+  width: 16px;
+  height: 10px;
+  border-radius: 0.2rem;
+  border: 1px solid rgba(0, 0, 0, 0.4);
 }
 
 .race-choose-foot {
@@ -1343,6 +1390,17 @@ select:focus-visible {
 @media (max-width: 980px) {
   .race-mode-shell {
     overflow: auto;
+  }
+
+  .race-mode-controls {
+    flex-wrap: wrap;
+  }
+
+  .race-controls-left,
+  .race-controls-right {
+    width: 100%;
+    justify-content: flex-start;
+    margin-left: 0;
   }
 
   .race-main-layout {

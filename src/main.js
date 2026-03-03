@@ -16,9 +16,11 @@ import {
   loadSavedRacers,
   loadSavedTracks,
   loadTeamName,
+  loadNpcUnlockLevel,
   saveAppSettings,
   saveBestReturn,
   saveHyperparams,
+  saveNpcUnlockLevel,
   saveSavedRacers,
   saveSavedTracks,
   saveTeamName
@@ -312,6 +314,13 @@ const raceModeState = {
   savedCardRefs: new Map(),
   placeCardRefs: new Map()
 };
+
+function clampNpcUnlockLevel(level) {
+  const numeric = Math.floor(Number(level) || 1);
+  return Math.max(1, Math.min(NPC_PROFILES.length, numeric));
+}
+
+let unlockedNpcLevel = clampNpcUnlockLevel(loadNpcUnlockLevel() ?? 1);
 
 function sanitizeSavedRacer(entry, fallbackIndex) {
   if (!entry || typeof entry !== "object") {
@@ -1544,21 +1553,20 @@ function renderRacePlaceList() {
 function buildRaceChooserEntries() {
   const entries = [];
 
-  for (let i = 0; i < savedRacers.length; i += 1) {
-    const racer = savedRacers[i];
-    entries.push({
-      id: getSavedSelectionId(racer.id),
-      label: racer.name || "Unnamed Saved Racer",
-      meta: "Saved Racer"
-    });
-  }
-
   for (let i = 0; i < NPC_PROFILES.length; i += 1) {
     const npc = NPC_PROFILES[i];
+    const unlocked = npc.level <= unlockedNpcLevel;
     entries.push({
       id: getNpcSelectionId(npc.id),
       label: `${npc.name} (NPC)`,
-      meta: `NPC Lv ${npc.level} ${npc.tier}`
+      name: npc.name,
+      level: npc.level,
+      tier: npc.tier,
+      colors: [npc.carStyle.primary, npc.carStyle.secondary, npc.carStyle.accent],
+      unlocked,
+      meta: unlocked
+        ? `Level ${npc.level} ${npc.tier}`
+        : `Locked: beat Level ${Math.max(1, npc.level - 1)}`
     });
   }
 
@@ -1582,32 +1590,31 @@ function updateRaceChooserCount() {
   if (!raceChooseModalElements.count) {
     return;
   }
-  raceChooseModalElements.count.textContent = `${raceModeState.chooserSelection.size} / 5 selected`;
+  const deployedSavedCount = raceModeState.participants.filter(isSavedRaceParticipant).length;
+  const totalSelected = deployedSavedCount + raceModeState.chooserSelection.size;
+  raceChooseModalElements.count.textContent = `${totalSelected} / 5 selected (${deployedSavedCount} saved + ${raceModeState.chooserSelection.size} NPC)`;
 }
 
 function applyRaceSelection(selectedIds) {
-  const nextParticipants = [];
+  const savedParticipants = raceModeState.participants.filter(isSavedRaceParticipant).slice(0, 5);
+  const nextParticipants = [...savedParticipants];
   const safeSelection = Array.isArray(selectedIds) ? selectedIds.slice(0, 5) : [];
+  const maxNpcSlots = Math.max(0, 5 - savedParticipants.length);
+  let npcCount = 0;
 
   for (let i = 0; i < safeSelection.length; i += 1) {
     const id = safeSelection[i];
-    if (id.startsWith("saved:")) {
-      const savedId = id.slice("saved:".length);
-      const savedRacer = savedRacers.find((racer) => racer.id === savedId);
-      if (!savedRacer) {
+    if (id.startsWith("npc:")) {
+      if (npcCount >= maxNpcSlots) {
         continue;
       }
-      nextParticipants.push(createRaceParticipant(savedRacer, nextParticipants.length));
-      continue;
-    }
-
-    if (id.startsWith("npc:")) {
       const npcId = id.slice("npc:".length);
       const npcProfile = NPC_PROFILES.find((npc) => npc.id === npcId);
-      if (!npcProfile) {
+      if (!npcProfile || npcProfile.level > unlockedNpcLevel) {
         continue;
       }
       nextParticipants.push(createNpcRaceParticipant(npcProfile, nextParticipants.length));
+      npcCount += 1;
     }
   }
 
@@ -2430,6 +2437,7 @@ ui.setDrawMode(false, 0);
 saveHyperparams(hyperparams);
 saveTeamName(teamName);
 saveAppSettings(appSettings);
+saveNpcUnlockLevel(unlockedNpcLevel);
 savedRacers = persistSavedRacers(savedRacers);
 savedTracks = persistSavedTracks(savedTracks);
 

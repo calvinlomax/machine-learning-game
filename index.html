@@ -251,19 +251,23 @@
           <h1>Race Mode</h1>
           <button id="race-mode-exit-btn" class="danger" type="button">Exit</button>
         </header>
-        <div class="race-mode-controls">
-          <button id="race-mode-track-btn" type="button">Choose Track</button>
-          <button id="race-mode-choose-btn" type="button">Choose Racers</button>
-          <button id="race-mode-withdraw-btn" type="button">Withdraw All</button>
-          <button id="race-mode-start-btn" class="primary" type="button">Start</button>
-          <button id="race-mode-end-btn" class="danger" type="button">End Race</button>
-        </div>
         <div class="race-main-layout">
           <section class="race-places" aria-label="Race order">
             <h3>Race Order</h3>
             <div id="race-place-list" class="race-place-list"></div>
           </section>
           <div class="race-view-column">
+            <div class="race-mode-controls">
+              <div class="race-controls-left">
+                <button id="race-mode-start-btn" class="primary" type="button">Start</button>
+                <button id="race-mode-end-btn" class="danger" type="button">End Race</button>
+              </div>
+              <div class="race-controls-right">
+                <button id="race-mode-track-btn" type="button">Choose Track</button>
+                <button id="race-mode-choose-btn" type="button">Choose Racers</button>
+                <button id="race-mode-withdraw-btn" type="button">Withdraw All</button>
+              </div>
+            </div>
             <div class="race-canvas-frame">
               <canvas id="race-canvas" width="900" height="600" aria-label="Race mode canvas"></canvas>
             </div>
@@ -299,7 +303,7 @@
       <div class="modal-backdrop"></div>
       <div class="modal race-choose-modal" role="dialog" aria-modal="true" aria-labelledby="race-choose-modal-title" tabindex="-1">
         <h2 id="race-choose-modal-title">Choose Racers</h2>
-        <p>Select up to 5 racers from saved racers and NPC rivals.</p>
+        <p>Select NPC rivals to race against your deployed saved racers (max total racers: 5).</p>
         <div id="race-choose-list" class="race-choose-list"></div>
         <div class="race-choose-foot">
           <span id="race-choose-count">0 / 5 selected</span>
