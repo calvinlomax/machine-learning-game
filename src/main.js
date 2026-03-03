@@ -38,6 +38,13 @@ const AUTO_TRAIN_EPISODE_LIMIT = 250;
 const AUTO_TRAIN_TWO_LAP_TARGET = 2;
 const AUTO_TRAIN_STREAK_LIMIT = 3;
 const AUTO_TRAIN_PRESET_NAME = "AutoTrain Racer";
+const AUTO_TRAIN_TUNE_INTERVAL_STEPS = 180;
+const AUTO_TRAIN_TUNE_PARAMS = Object.freeze([
+  { id: "actionSmoothing", min: 0, max: 0.9, step: 0.01 },
+  { id: "progressRewardWeight", min: 0, max: 5, step: 0.01 },
+  { id: "offTrackPenalty", min: -10, max: 0, step: 0.1 },
+  { id: "speedPenaltyWeight", min: 0, max: 2, step: 0.01 }
+]);
 const TRACK_PRESETS = Object.freeze([
   { id: "monte-carlo", name: "Monte Carlo", seed: "318041527" },
   { id: "monza", name: "Monza", seed: "704219883" },
@@ -300,7 +307,17 @@ const autoTrainState = {
   episodesSinceEnabled: 0,
   episodesOnTrack: 0,
   consecutiveTwoLapEpisodes: 0,
-  trackKey: ""
+  trackKey: "",
+  stepsSinceLastTweak: 0,
+  tuneCursor: 0,
+  pendingTweak: null,
+  lastEpisodeReturn: null,
+  tuneDirections: {
+    actionSmoothing: 1,
+    progressRewardWeight: 1,
+    offTrackPenalty: 1,
+    speedPenaltyWeight: 1
+  }
 };
 
 const drawState = {
@@ -563,6 +580,95 @@ function resetAutoTrainTrackProgress() {
   autoTrainState.consecutiveTwoLapEpisodes = 0;
 }
 
+function resetAutoTrainTuningProgress() {
+  autoTrainState.stepsSinceLastTweak = 0;
+  autoTrainState.tuneCursor = 0;
+  autoTrainState.pendingTweak = null;
+  autoTrainState.lastEpisodeReturn = null;
+  autoTrainState.tuneDirections.actionSmoothing = 1;
+  autoTrainState.tuneDirections.progressRewardWeight = 1;
+  autoTrainState.tuneDirections.offTrackPenalty = 1;
+  autoTrainState.tuneDirections.speedPenaltyWeight = 1;
+}
+
+function getStepPrecision(step) {
+  const text = String(step ?? "");
+  if (!text.includes(".")) {
+    return 0;
+  }
+  return Math.min(6, Math.max(0, text.split(".")[1]?.length || 0));
+}
+
+function stepAutoTrainParamValue(param, currentValue, direction) {
+  const precision = getStepPrecision(param.step);
+  const candidate = clamp(Number(currentValue) + direction * param.step, param.min, param.max);
+  return Number(candidate.toFixed(precision));
+}
+
+function maybeApplyAutoTrainTweak() {
+  if (!autoTrainState.enabled || autoTrainState.pendingTweak) {
+    return;
+  }
+
+  autoTrainState.stepsSinceLastTweak += 1;
+  if (autoTrainState.stepsSinceLastTweak < AUTO_TRAIN_TUNE_INTERVAL_STEPS) {
+    return;
+  }
+  autoTrainState.stepsSinceLastTweak = 0;
+
+  const params = AUTO_TRAIN_TUNE_PARAMS;
+  if (!params.length) {
+    return;
+  }
+
+  const param = params[autoTrainState.tuneCursor % params.length];
+  autoTrainState.tuneCursor = (autoTrainState.tuneCursor + 1) % params.length;
+
+  const currentValue = Number(hyperparams[param.id]);
+  let direction = autoTrainState.tuneDirections[param.id] || 1;
+  let nextValue = stepAutoTrainParamValue(param, currentValue, direction);
+
+  if (nextValue === currentValue) {
+    direction *= -1;
+    autoTrainState.tuneDirections[param.id] = direction;
+    nextValue = stepAutoTrainParamValue(param, currentValue, direction);
+    if (nextValue === currentValue) {
+      return;
+    }
+  }
+
+  const nextHyperparams = clampHyperparams({
+    ...hyperparams,
+    [param.id]: nextValue
+  });
+  ui.setHyperparams(nextHyperparams, false);
+  applyHyperparams(nextHyperparams);
+
+  autoTrainState.pendingTweak = {
+    paramId: param.id,
+    direction,
+    baselineReturn: Number.isFinite(autoTrainState.lastEpisodeReturn) ? autoTrainState.lastEpisodeReturn : null
+  };
+}
+
+function evaluateAutoTrainTweak(finishedReturn) {
+  const pending = autoTrainState.pendingTweak;
+  const numericReturn = Number(finishedReturn);
+  const validReturn = Number.isFinite(numericReturn);
+  if (pending && validReturn && Number.isFinite(pending.baselineReturn)) {
+    if (numericReturn < pending.baselineReturn) {
+      autoTrainState.tuneDirections[pending.paramId] = -(pending.direction || 1);
+    } else {
+      autoTrainState.tuneDirections[pending.paramId] = pending.direction || 1;
+    }
+  }
+
+  autoTrainState.pendingTweak = null;
+  if (validReturn) {
+    autoTrainState.lastEpisodeReturn = numericReturn;
+  }
+}
+
 function setAutoTrainEnabled(enabled) {
   autoTrainState.enabled = Boolean(enabled);
   autoTrainState.episodesSinceEnabled = 0;
@@ -574,6 +680,7 @@ function setAutoTrainEnabled(enabled) {
     ui.setTrainingSpeed(trainingSpeedMultiplier, false);
   }
   resetAutoTrainTrackProgress();
+  resetAutoTrainTuningProgress();
 }
 
 function maybeRotateAutoTrainTrack(completedLapCount) {
@@ -750,6 +857,7 @@ function handleEpisodeTermination() {
     bestEpisodeReturn = finishedReturn;
     saveBestReturn(bestEpisodeReturn);
   }
+  evaluateAutoTrainTweak(finishedReturn);
 
   agent.onEpisodeEnd();
   syncDeployedSavedRacerProgress();
@@ -787,6 +895,8 @@ function runOneStep() {
   if (transition.done) {
     handleEpisodeTermination();
   }
+
+  maybeApplyAutoTrainTweak();
 }
 
 function canvasEventToWorldPoint(event) {
