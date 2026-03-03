@@ -10,10 +10,13 @@
   <body>
     <main class="app-shell">
       <header class="hero">
-        <div>
+        <div class="hero-main">
           <h2 class="kicker">Created by Calvin Lomax</h2>
           <h1>ML1 Grand Prix - Train, Build, and Test Your Team with AI</h1>
           <p class="kicker">Tip: let the driver learn for a while before changing hyperparameters, it may surpise you.</p>
+        </div>
+        <div class="hero-actions">
+          <a id="learn-btn" class="learn-btn" href="./learn.html">Learn</a>
         </div>
       </header>
 
@@ -112,7 +115,7 @@
         </div>
         <div class="toggle-row">
           <label><input id="toggle-auto-train" type="checkbox" /> Auto-train</label>
-          <label><input id="toggle-auto-param" type="checkbox" /> auto-param</label>
+          <label><input id="toggle-auto-param" type="checkbox" /> Auto-param</label>
         </div>
       </section>
 
@@ -355,6 +358,6 @@
       </div>
     </div>
 
-    <script type="module" src="./src/main.js?v=panel-layout-sync-20260303"></script>
+    <script type="module" src="./src/main.js?v=learn-page-20260303"></script>
   </body>
 </html>

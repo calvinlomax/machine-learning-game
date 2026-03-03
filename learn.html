@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Learn the Concepts | ML Racer</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./styles/learn.css" />
+  </head>
+  <body>
+    <main class="learn-shell">
+      <header class="surface learn-hero">
+        <div>
+          <p class="kicker">ML1 Academy</p>
+          <h1>Learn the Concepts</h1>
+          <p class="intro-text">
+            This page explains the AI, programming, and core computer science ideas behind the game in plain language.
+            Move the sliders and buttons to see what changes.
+          </p>
+        </div>
+        <a id="learn-back-btn" class="btn primary" href="./">Back to Simulator</a>
+      </header>
+
+      <nav class="surface concept-nav" aria-label="Concept quick links">
+        <a href="#concept-sensors">How the Car Sees</a>
+        <a href="#concept-epsilon">Explore vs Exploit</a>
+        <a href="#concept-q">Q-Value Update</a>
+        <a href="#concept-buffer">Replay Buffer</a>
+      </nav>
+
+      <section id="concept-sensors" class="surface concept-card">
+        <h2>1) How the Car Sees the Track</h2>
+        <p>
+          The racer does not see the full map like you do. It shoots short virtual rays forward and measures how far each
+          one goes before hitting a border. Those distances become numbers the model can learn from.
+        </p>
+        <div class="concept-layout">
+          <canvas id="sensor-canvas" width="720" height="420" aria-label="Ray sensor demonstration"></canvas>
+          <div class="controls-grid">
+            <label for="sensor-progress">Car position on lap</label>
+            <div class="range-row">
+              <input id="sensor-progress" type="range" min="0" max="1" step="0.001" value="0.08" />
+              <output id="sensor-progress-out">8%</output>
+            </div>
+
+            <label for="sensor-heading">Steering offset</label>
+            <div class="range-row">
+              <input id="sensor-heading" type="range" min="-60" max="60" step="1" value="0" />
+              <output id="sensor-heading-out">0&deg;</output>
+            </div>
+
+            <label for="sensor-rays">Number of rays</label>
+            <div class="range-row">
+              <input id="sensor-rays" type="range" min="3" max="11" step="2" value="7" />
+              <output id="sensor-rays-out">7</output>
+            </div>
+            <div id="sensor-readout" class="sensor-readout"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="concept-epsilon" class="surface concept-card">
+        <h2>2) Explore vs Exploit (Epsilon-Greedy)</h2>
+        <p>
+          The model sometimes tries random actions to discover better behavior. The <strong>epsilon</strong> value controls
+          how often that happens.
+        </p>
+        <div class="concept-layout">
+          <canvas id="epsilon-canvas" width="520" height="260" aria-label="Exploration visualization"></canvas>
+          <div class="controls-grid">
+            <label for="epsilon-slider">Epsilon (random action chance)</label>
+            <div class="range-row">
+              <input id="epsilon-slider" type="range" min="0" max="1" step="0.01" value="0.35" />
+              <output id="epsilon-out">0.35</output>
+            </div>
+
+            <label for="epsilon-trials">Decisions to simulate</label>
+            <div class="range-row">
+              <input id="epsilon-trials" type="range" min="50" max="500" step="10" value="200" />
+              <output id="epsilon-trials-out">200</output>
+            </div>
+
+            <div class="button-row">
+              <button id="epsilon-reroll-btn" class="btn" type="button">Run Simulation</button>
+            </div>
+
+            <div class="stat-list">
+              <div><span>Exploration picks</span><strong id="epsilon-explore-count">0</strong></div>
+              <div><span>Exploitation picks</span><strong id="epsilon-exploit-count">0</strong></div>
+              <div><span>Estimated score</span><strong id="epsilon-score">0%</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="concept-q" class="surface concept-card">
+        <h2>3) How the Model Updates a Q-Value</h2>
+        <p>
+          A Q-value estimates “how good is this action in this situation.” Each step nudges the value using reward and a
+          guess of future reward.
+        </p>
+        <div class="formula-box" id="q-formula"></div>
+        <div class="concept-layout">
+          <canvas id="q-canvas" width="520" height="240" aria-label="Q-value update visualization"></canvas>
+          <div class="controls-grid">
+            <label for="q-old">Current Q</label>
+            <div class="range-row">
+              <input id="q-old" type="range" min="-2" max="2" step="0.01" value="0.15" />
+              <output id="q-old-out">0.15</output>
+            </div>
+
+            <label for="q-reward">Immediate reward</label>
+            <div class="range-row">
+              <input id="q-reward" type="range" min="-2" max="2" step="0.01" value="0.4" />
+              <output id="q-reward-out">0.40</output>
+            </div>
+
+            <label for="q-next">Best next Q</label>
+            <div class="range-row">
+              <input id="q-next" type="range" min="-2" max="2" step="0.01" value="0.9" />
+              <output id="q-next-out">0.90</output>
+            </div>
+
+            <label for="q-alpha">Learning rate</label>
+            <div class="range-row">
+              <input id="q-alpha" type="range" min="0.01" max="1" step="0.01" value="0.3" />
+              <output id="q-alpha-out">0.30</output>
+            </div>
+
+            <label for="q-gamma">Gamma (discount)</label>
+            <div class="range-row">
+              <input id="q-gamma" type="range" min="0" max="0.999" step="0.001" value="0.98" />
+              <output id="q-gamma-out">0.980</output>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="concept-buffer" class="surface concept-card">
+        <h2>4) Why Replay Buffer Helps Stability</h2>
+        <p>
+          Instead of training only on the newest step, the model stores many past experiences and samples a mixed batch.
+          This reduces overfitting to recent mistakes.
+        </p>
+        <div class="concept-layout">
+          <canvas id="buffer-canvas" width="720" height="260" aria-label="Replay buffer visualization"></canvas>
+          <div class="controls-grid">
+            <label for="buffer-batch">Batch size</label>
+            <div class="range-row">
+              <input id="buffer-batch" type="range" min="2" max="10" step="1" value="6" />
+              <output id="buffer-batch-out">6</output>
+            </div>
+            <div class="button-row">
+              <button id="buffer-add-btn" class="btn" type="button">Add Step</button>
+              <button id="buffer-sample-btn" class="btn primary" type="button">Sample Batch</button>
+              <button id="buffer-auto-btn" class="btn" type="button">Auto Fill</button>
+            </div>
+            <div class="stat-list">
+              <div><span>Stored transitions</span><strong id="buffer-count">0</strong></div>
+              <div><span>Sampled now</span><strong id="buffer-sampled">0</strong></div>
+              <div><span>Avg reward in buffer</span><strong id="buffer-avg-reward">0.00</strong></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="surface glossary-card">
+        <h2>Glossary in Plain English</h2>
+        <ul>
+          <li><strong>State:</strong> The numbers the model sees right now.</li>
+          <li><strong>Action:</strong> One choice the model can make (turn, brake, accelerate).</li>
+          <li><strong>Reward:</strong> Score signal after an action. Positive means “more like this.”</li>
+          <li><strong>Episode:</strong> One full attempt until crash or max steps.</li>
+          <li><strong>Policy:</strong> The model’s strategy for choosing actions.</li>
+          <li><strong>Inference:</strong> Running the trained model to pick an action.</li>
+        </ul>
+      </section>
+    </main>
+
+    <script type="module" src="./src/learn.js?v=learn-page-20260303"></script>
+  </body>
+</html>

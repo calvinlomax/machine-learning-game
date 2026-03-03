@@ -66,6 +66,11 @@ const DEFAULT_APP_SETTINGS = Object.freeze({
 
 document.documentElement.dataset.baseUrl = BASE_URL;
 
+const learnLink = document.getElementById("learn-btn");
+if (learnLink instanceof HTMLAnchorElement) {
+  learnLink.href = `${BASE_URL}learn.html`;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }

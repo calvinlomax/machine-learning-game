@@ -161,6 +161,40 @@ select:focus-visible {
   padding: 0.6rem 0.2rem;
 }
 
+.hero-main {
+  min-width: 0;
+}
+
+.hero-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.learn-btn {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+  border-radius: 0.65rem;
+  padding: 0.52rem 0.86rem;
+  text-decoration: none;
+  font-weight: 650;
+  line-height: 1;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
+}
+
+.learn-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 14px rgba(53, 40, 25, 0.12);
+  background: var(--primary-2);
+}
+
+.learn-btn:focus-visible {
+  outline: 3px solid rgba(13, 127, 97, 0.35);
+  outline-offset: 2px;
+}
+
 .kicker {
   text-transform: uppercase;
   letter-spacing: 0.15em;
@@ -1454,6 +1488,15 @@ select:focus-visible {
 
   .hero {
     grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    align-items: start;
+  }
+
+  .hero-actions {
+    justify-self: end;
+    align-self: start;
+    margin-left: 0;
   }
 
   .canvas-surface {
